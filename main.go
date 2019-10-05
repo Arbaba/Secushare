@@ -2,7 +2,7 @@ package main
 
 import (
 	//	"Peerster/nodes"
-	"peerster/packets"
+	"Peerster/packets"
 	"flag"
 	"fmt"
 	"net"
