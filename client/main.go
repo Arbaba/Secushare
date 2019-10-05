@@ -1,7 +1,7 @@
 package main
 
 import (
-	"Peerster/packets"
+	"peerster/packets"
 	"flag"
 	"fmt"
 	"net"
