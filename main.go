@@ -16,20 +16,58 @@ type Gossiper struct {
 	clientAddr *net.UDPAddr
 	clientConn *net.UDPConn
 	name       string
-	peers      string
+	peers      []string
 	simpleMode bool
+}
+
+func (gossiper *Gossiper) addPeer(address string) {
+	containsAddr := false
+	for _, paddr := range gossiper.peers {
+		if paddr == address {
+			containsAddr = true
+			break
+		}
+	}
+	if !containsAddr {
+		gossiper.peers = append(gossiper.peers, address)
+	}
+}
+
+func (gossiper *Gossiper) relayAddress() string {
+	return fmt.Sprintf("%s:%d", gossiper.gossipAddr.IP, gossiper.gossipAddr.Port)
+}
+
+func sendPacket(packet packets.GossipPacket, address string) {
+
+	encodedPacket, err := protobuf.Encode(&packet)
+	conn, err := net.Dial("udp", address)
+	_, err = conn.Write(encodedPacket)
+	if err != nil {
+		fmt.Println("Error : ", err)
+	}
+}
+
+func (gossiper *Gossiper) simpleBroadcast(packet packets.GossipPacket) {
+	sourceAddress := packet.Simple.RelayPeerAddr
+	packet.Simple.RelayPeerAddr = gossiper.relayAddress()
+	packet.Simple.OriginalName = gossiper.name
+	for _, peer := range gossiper.peers {
+		if sourceAddress != peer {
+			sendPacket(packet, peer)
+		}
+	}
 }
 
 func main() {
 	uiport, gossipAddr, name, peers, simpleMode := parseCmd()
 	//fmt.Printf("Port %s\nGossipAddr %s\nName %s\nPeers %s\nSimpleMode %t\n", *uiport, *gossipAddr, *name, *peers, *simpleMode)
 	//parse IP append uiport
-	gossiper := newGossiper(*gossipAddr, "gossiper", *uiport, *name, *peers, *simpleMode)
+	gossiper := newGossiper(*gossipAddr, "gossiper", *uiport, *name, peers, *simpleMode)
 	go listenClient(gossiper)
 	listenGossip(gossiper)
 }
 
-func parseCmd() (*string, *string, *string, *string, *bool) {
+func parseCmd() (*string, *string, *string, []string, *bool) {
 	//Parse arguments
 	uiport := flag.String("UIPort", "8080", "port for the UI client")
 	gossipAddr := flag.String("gossipAddr", "127.0.0.1:5000", "ip:port for the gossiper")
@@ -37,7 +75,11 @@ func parseCmd() (*string, *string, *string, *string, *bool) {
 	peers := flag.String("peers", "", "comma separated list of peers of the form ip:port")
 	simpleMode := flag.Bool("simple", false, "run gossiper in simple broadcast mode")
 	flag.Parse()
-	return uiport, gossipAddr, name, peers, simpleMode
+	peersList := []string{}
+	if *peers != "" {
+		peersList = strings.Split(*peers, ",")
+	}
+	return uiport, gossipAddr, name, peersList, simpleMode
 }
 
 /*
@@ -54,9 +96,10 @@ func udpConnection(address string) (*net.UDPAddr, *net.UDPConn) {
 	return udpAddr, udpConn
 }
 
-func newGossiper(address, namee, uiport, name, peers string, simpleMode bool) *Gossiper {
+func newGossiper(address, namee, uiport, name string, peers []string, simpleMode bool) *Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
+
 	gossipAddr, gossipConn := udpConnection(address)
 	clientAddr, clientConn := udpConnection(fmt.Sprintf("%s:%s", ip, uiport))
 	return &Gossiper{
@@ -81,6 +124,7 @@ func listenClient(gossiper *Gossiper) {
 		}
 		var packet packets.GossipPacket
 		protobuf.Decode(message[:rlen], &packet)
+		gossiper.simpleBroadcast(packet)
 		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
 	}
 }
@@ -96,6 +140,7 @@ func listenGossip(gossiper *Gossiper) {
 		}
 		var packet packets.GossipPacket
 		protobuf.Decode(message[:rlen], &packet)
+		gossiper.addPeer(packet.Simple.RelayPeerAddr)
 		fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
 			packet.Simple.OriginalName,
 			packet.Simple.RelayPeerAddr,
