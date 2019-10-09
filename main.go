@@ -47,10 +47,7 @@ func sendPacket(packet packets.GossipPacket, address string) {
 	}
 }
 
-func (gossiper *Gossiper) simpleBroadcast(packet packets.GossipPacket) {
-	sourceAddress := packet.Simple.RelayPeerAddr
-	packet.Simple.RelayPeerAddr = gossiper.relayAddress()
-	packet.Simple.OriginalName = gossiper.name
+func (gossiper *Gossiper) simpleBroadcast(packet packets.GossipPacket, sourceAddress string) {
 	for _, peer := range gossiper.peers {
 		if sourceAddress != peer {
 			sendPacket(packet, peer)
@@ -62,7 +59,7 @@ func main() {
 	uiport, gossipAddr, name, peers, simpleMode := parseCmd()
 	//fmt.Printf("Port %s\nGossipAddr %s\nName %s\nPeers %s\nSimpleMode %t\n", *uiport, *gossipAddr, *name, *peers, *simpleMode)
 	//parse IP append uiport
-	gossiper := newGossiper(*gossipAddr, "gossiper", *uiport, *name, peers, *simpleMode)
+	gossiper := newGossiper(*gossipAddr, *name, *uiport, peers, *simpleMode)
 	go listenClient(gossiper)
 	listenGossip(gossiper)
 }
@@ -96,7 +93,7 @@ func udpConnection(address string) (*net.UDPAddr, *net.UDPConn) {
 	return udpAddr, udpConn
 }
 
-func newGossiper(address, namee, uiport, name string, peers []string, simpleMode bool) *Gossiper {
+func newGossiper(address, namee, uiport string, peers []string, simpleMode bool) *Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
 
@@ -124,7 +121,12 @@ func listenClient(gossiper *Gossiper) {
 		}
 		var packet packets.GossipPacket
 		protobuf.Decode(message[:rlen], &packet)
-		gossiper.simpleBroadcast(packet)
+
+		sourceAddress := packet.Simple.RelayPeerAddr
+		packet.Simple.RelayPeerAddr = gossiper.relayAddress()
+		packet.Simple.OriginalName = gossiper.name
+
+		gossiper.simpleBroadcast(packet, sourceAddress)
 		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
 	}
 }
@@ -141,10 +143,18 @@ func listenGossip(gossiper *Gossiper) {
 		var packet packets.GossipPacket
 		protobuf.Decode(message[:rlen], &packet)
 		gossiper.addPeer(packet.Simple.RelayPeerAddr)
-		gossiper.simpleBroadcast(packet)
-		fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
-			packet.Simple.OriginalName,
-			packet.Simple.RelayPeerAddr,
-			packet.Simple.Contents)
+
+		if packet.Simple.OriginalName != gossiper.name {
+
+			sourceAddress := packet.Simple.RelayPeerAddr
+			packet.Simple.RelayPeerAddr = gossiper.relayAddress()
+			gossiper.simpleBroadcast(packet, sourceAddress)
+
+			fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
+				packet.Simple.OriginalName,
+				packet.Simple.RelayPeerAddr,
+				packet.Simple.Contents)
+		}
+
 	}
 }
