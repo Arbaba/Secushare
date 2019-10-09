@@ -128,6 +128,8 @@ func listenClient(gossiper *Gossiper) {
 
 		gossiper.simpleBroadcast(packet, sourceAddress)
 		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
+		fmt.Println(strings.Join(gossiper.peers[:], ","))
+
 	}
 }
 
@@ -154,6 +156,7 @@ func listenGossip(gossiper *Gossiper) {
 				packet.Simple.OriginalName,
 				sourceAddress,
 				packet.Simple.Contents)
+			fmt.Println(strings.Join(gossiper.peers[:], ","))
 		}
 
 	}
