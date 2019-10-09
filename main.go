@@ -142,9 +142,9 @@ func listenGossip(gossiper *Gossiper) {
 		}
 		var packet packets.GossipPacket
 		protobuf.Decode(message[:rlen], &packet)
-		gossiper.addPeer(packet.Simple.RelayPeerAddr)
 
 		if packet.Simple.OriginalName != gossiper.name {
+			gossiper.addPeer(packet.Simple.RelayPeerAddr)
 
 			sourceAddress := packet.Simple.RelayPeerAddr
 			packet.Simple.RelayPeerAddr = gossiper.relayAddress()
@@ -152,7 +152,7 @@ func listenGossip(gossiper *Gossiper) {
 
 			fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
 				packet.Simple.OriginalName,
-				packet.Simple.RelayPeerAddr,
+				sourceAddress,
 				packet.Simple.Contents)
 		}
 
