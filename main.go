@@ -75,9 +75,13 @@ func listenClient(gossiper *nodes.Gossiper) {
 		if err != nil {
 			panic(err)
 		}
-		var packet packets.GossipPacket
-		protobuf.Decode(message[:rlen], &packet)
-
+		var msg packets.Message
+		protobuf.Decode(message[:rlen], &msg)
+		packet := packets.GossipPacket{&packets.SimpleMessage{
+			OriginalName:  gossiper.Name,
+			RelayPeerAddr: gossiper.RelayAddress(),
+			Contents:      msg.Text,
+		}}
 		sourceAddress := packet.Simple.RelayPeerAddr
 		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
 		packet.Simple.OriginalName = gossiper.Name
