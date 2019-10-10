@@ -1,11 +1,11 @@
 package main
 
 import (
-	"Peerster/packets"
 	"flag"
 	"fmt"
 	"net"
 	"protobuf"
+	"Peerster/packets"
 )
 
 func main() {
@@ -13,9 +13,9 @@ func main() {
 	msg := flag.String("msg", "", "message to be sent")
 	flag.Parse()
 	target := fmt.Sprintf("127.0.0.1:%s", *uiport)
-	simpleMsg := packets.SimpleMessage{"", target, *msg}
-	packet := packets.GossipPacket{&simpleMsg}
-	encodedPacket, err := protobuf.Encode(&packet)
+	simpleMsg := packets.Message{*msg}
+
+	encodedPacket, err := protobuf.Encode(&simpleMsg)
 	if err != nil {
 		fmt.Println(err)
 	}

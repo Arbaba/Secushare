@@ -2,6 +2,7 @@ package main
 
 import (
 	//	"Peerster/nodes"
+	"Peerster/nodes"
 	"Peerster/packets"
 	"flag"
 	"fmt"
@@ -9,51 +10,6 @@ import (
 	"protobuf"
 	"strings"
 )
-
-type Gossiper struct {
-	gossipAddr *net.UDPAddr
-	gossipConn *net.UDPConn
-	clientAddr *net.UDPAddr
-	clientConn *net.UDPConn
-	name       string
-	peers      []string
-	simpleMode bool
-}
-
-func (gossiper *Gossiper) addPeer(address string) {
-	containsAddr := false
-	for _, paddr := range gossiper.peers {
-		if paddr == address {
-			containsAddr = true
-			break
-		}
-	}
-	if !containsAddr {
-		gossiper.peers = append(gossiper.peers, address)
-	}
-}
-
-func (gossiper *Gossiper) relayAddress() string {
-	return fmt.Sprintf("%s:%d", gossiper.gossipAddr.IP, gossiper.gossipAddr.Port)
-}
-
-func sendPacket(packet packets.GossipPacket, address string) {
-
-	encodedPacket, err := protobuf.Encode(&packet)
-	conn, err := net.Dial("udp", address)
-	_, err = conn.Write(encodedPacket)
-	if err != nil {
-		fmt.Println("Error : ", err)
-	}
-}
-
-func (gossiper *Gossiper) simpleBroadcast(packet packets.GossipPacket, sourceAddress string) {
-	for _, peer := range gossiper.peers {
-		if sourceAddress != peer {
-			sendPacket(packet, peer)
-		}
-	}
-}
 
 func main() {
 	uiport, gossipAddr, name, peers, simpleMode := parseCmd()
@@ -93,25 +49,25 @@ func udpConnection(address string) (*net.UDPAddr, *net.UDPConn) {
 	return udpAddr, udpConn
 }
 
-func newGossiper(address, namee, uiport string, peers []string, simpleMode bool) *Gossiper {
+func newGossiper(address, namee, uiport string, peers []string, simpleMode bool) *nodes.Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
 
 	gossipAddr, gossipConn := udpConnection(address)
 	clientAddr, clientConn := udpConnection(fmt.Sprintf("%s:%s", ip, uiport))
-	return &Gossiper{
-		gossipAddr: gossipAddr,
-		gossipConn: gossipConn,
-		clientAddr: clientAddr,
-		clientConn: clientConn,
-		name:       namee,
-		peers:      peers,
-		simpleMode: simpleMode,
+	return &nodes.Gossiper{
+		GossipAddr: gossipAddr,
+		GossipConn: gossipConn,
+		ClientAddr: clientAddr,
+		ClientConn: clientConn,
+		Name:       namee,
+		Peers:      peers,
+		SimpleMode: simpleMode,
 	}
 }
 
-func listenClient(gossiper *Gossiper) {
-	conn := gossiper.clientConn
+func listenClient(gossiper *nodes.Gossiper) {
+	conn := gossiper.ClientConn
 	defer conn.Close()
 	for {
 		message := make([]byte, 1000)
@@ -123,18 +79,18 @@ func listenClient(gossiper *Gossiper) {
 		protobuf.Decode(message[:rlen], &packet)
 
 		sourceAddress := packet.Simple.RelayPeerAddr
-		packet.Simple.RelayPeerAddr = gossiper.relayAddress()
-		packet.Simple.OriginalName = gossiper.name
+		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
+		packet.Simple.OriginalName = gossiper.Name
 
-		gossiper.simpleBroadcast(packet, sourceAddress)
+		gossiper.SimpleBroadcast(packet, sourceAddress)
 		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
-		fmt.Println(strings.Join(gossiper.peers[:], ","))
+		fmt.Println(strings.Join(gossiper.Peers[:], ","))
 
 	}
 }
 
-func listenGossip(gossiper *Gossiper) {
-	conn := gossiper.gossipConn
+func listenGossip(gossiper *nodes.Gossiper) {
+	conn := gossiper.GossipConn
 	defer conn.Close()
 	for {
 		message := make([]byte, 1000)
@@ -146,17 +102,17 @@ func listenGossip(gossiper *Gossiper) {
 		protobuf.Decode(message[:rlen], &packet)
 
 		//if packet.Simple.OriginalName != gossiper.name {
-		gossiper.addPeer(packet.Simple.RelayPeerAddr)
+		gossiper.AddPeer(packet.Simple.RelayPeerAddr)
 
 		sourceAddress := packet.Simple.RelayPeerAddr
-		packet.Simple.RelayPeerAddr = gossiper.relayAddress()
-		gossiper.simpleBroadcast(packet, sourceAddress)
+		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
+		gossiper.SimpleBroadcast(packet, sourceAddress)
 
 		fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
 			packet.Simple.OriginalName,
 			sourceAddress,
 			packet.Simple.Contents)
-		fmt.Println(strings.Join(gossiper.peers[:], ","))
+		fmt.Println(strings.Join(gossiper.Peers[:], ","))
 		//}
 
 	}
