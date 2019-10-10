@@ -66,6 +66,29 @@ func newGossiper(address, namee, uiport string, peers []string, simpleMode bool)
 	}
 }
 
+func handleClient(gossiper *nodes.Gossiper, message []byte, rlen int) {
+	var msg packets.Message
+	protobuf.Decode(message[:rlen], &msg)
+
+	if gossiper.SimpleMode {
+		packet := packets.GossipPacket{
+			Simple: &packets.SimpleMessage{
+				OriginalName:  gossiper.Name,
+				RelayPeerAddr: gossiper.RelayAddress(),
+				Contents:      msg.Text,
+			}}
+		sourceAddress := packet.Simple.RelayPeerAddr
+		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
+		packet.Simple.OriginalName = gossiper.Name
+
+		gossiper.SimpleBroadcast(packet, sourceAddress)
+		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
+		fmt.Println(strings.Join(gossiper.Peers[:], ","))
+	} else {
+
+	}
+}
+
 func listenClient(gossiper *nodes.Gossiper) {
 	conn := gossiper.ClientConn
 	defer conn.Close()
@@ -75,43 +98,17 @@ func listenClient(gossiper *nodes.Gossiper) {
 		if err != nil {
 			panic(err)
 		}
-		var msg packets.Message
-		protobuf.Decode(message[:rlen], &msg)
-
-		if gossiper.SimpleMode {
-			packet := packets.GossipPacket{
-				Simple: &packets.SimpleMessage{
-					OriginalName:  gossiper.Name,
-					RelayPeerAddr: gossiper.RelayAddress(),
-					Contents:      msg.Text,
-				}}
-			sourceAddress := packet.Simple.RelayPeerAddr
-			packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
-			packet.Simple.OriginalName = gossiper.Name
-
-			gossiper.SimpleBroadcast(packet, sourceAddress)
-			fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
-			fmt.Println(strings.Join(gossiper.Peers[:], ","))
-		} else {
-
-		}
+		go handleClient(gossiper, message, rlen)
 
 	}
 }
 
-func listenGossip(gossiper *nodes.Gossiper) {
-	conn := gossiper.GossipConn
-	defer conn.Close()
-	for {
-		message := make([]byte, 1000)
-		rlen, _, err := conn.ReadFromUDP(message[:])
-		if err != nil {
-			panic(err)
-		}
-		var packet packets.GossipPacket
-		protobuf.Decode(message[:rlen], &packet)
+func handleGossip(gossiper *nodes.Gossiper, message []byte, rlen int, raddr *net.UDPAddr) {
+	var packet packets.GossipPacket
+	protobuf.Decode(message[:rlen], &packet)
 
-		//if packet.Simple.OriginalName != gossiper.name {
+	//if packet.Simple.OriginalName != gossiper.name {
+	if packet.Simple != nil {
 		gossiper.AddPeer(packet.Simple.RelayPeerAddr)
 
 		sourceAddress := packet.Simple.RelayPeerAddr
@@ -123,7 +120,25 @@ func listenGossip(gossiper *nodes.Gossiper) {
 			sourceAddress,
 			packet.Simple.Contents)
 		fmt.Println(strings.Join(gossiper.Peers[:], ","))
-		//}
+	} else if packet.Rumor != nil {
+
+	} else if packet.StatusPacket != nil {
+
+	}
+	//}
+
+}
+
+func listenGossip(gossiper *nodes.Gossiper) {
+	conn := gossiper.GossipConn
+	defer conn.Close()
+	for {
+		message := make([]byte, 1000)
+		rlen, raddr, err := conn.ReadFromUDP(message[:])
+		if err != nil {
+			panic(err)
+		}
+		go handleGossip(gossiper, message, rlen, raddr)
 
 	}
 }
