@@ -3,19 +3,25 @@ package nodes
 import (
 	"Peerster/packets"
 	"fmt"
+	"math/rand"
 	"net"
 	"protobuf"
+	"sort"
+	"sync"
 )
 
 // Gossiper : Represents the gossiper
 type Gossiper struct {
-	GossipAddr *net.UDPAddr
-	GossipConn *net.UDPConn
-	ClientAddr *net.UDPAddr
-	ClientConn *net.UDPConn
-	Name       string
-	Peers      []string
-	SimpleMode bool
+	GossipAddr     *net.UDPAddr
+	GossipConn     *net.UDPConn
+	ClientAddr     *net.UDPAddr
+	ClientConn     *net.UDPConn
+	Name           string
+	Peers          []string
+	SimpleMode     bool
+	StatusPacket   packets.StatusPacket
+	RumorsReceived map[string][]*packets.RumorMessage
+	rumorsMux      sync.Mutex
 }
 
 func (gossiper *Gossiper) AddPeer(address string) {
@@ -51,4 +57,54 @@ func (gossiper *Gossiper) SimpleBroadcast(packet packets.GossipPacket, sourceAdd
 			gossiper.SendPacket(packet, peer)
 		}
 	}
+}
+
+func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) {
+	idx := rand.Intn(len(gossiper.Peers))
+	gossiper.SendPacket(packet, gossiper.Peers[idx])
+}
+
+func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
+	if rumor := packet.Rumor; rumor != nil {
+		gossiper.rumorsMux.Lock()
+		defer gossiper.rumorsMux.Unlock()
+
+		list := make([]*packets.RumorMessage, len(gossiper.RumorsReceived[rumor.Origin]))
+		copy(list, gossiper.RumorsReceived[rumor.Origin])
+
+		id := rumor.ID
+		idx := sort.Search(len(list), func(i int) bool {
+			return list[i].ID > id
+		})
+		if idx < len(list) {
+			gossiper.RumorsReceived[rumor.Origin] = append(append(gossiper.RumorsReceived[rumor.Origin][:idx], rumor), list[idx:]...)
+		} else {
+			gossiper.RumorsReceived[rumor.Origin] = append(list, rumor)
+
+		}
+	}
+}
+
+func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessage {
+	gossiper.rumorsMux.Lock()
+	defer gossiper.rumorsMux.Unlock()
+	list := gossiper.RumorsReceived[origin]
+	idx := sort.Search(len(list), func(i int) bool {
+		return list[i].ID >= id
+	})
+	if idx < len(list) && list[idx].ID == id {
+		return list[idx]
+	}
+	return nil
+
+}
+
+func (gossiper *Gossiper) HighestRumor(origin string) *packets.RumorMessage {
+	gossiper.rumorsMux.Lock()
+	defer gossiper.rumorsMux.Unlock()
+	list := gossiper.RumorsReceived[origin]
+	if len(list) == 0 {
+		return nil
+	}
+	return list[len(list)-1]
 }

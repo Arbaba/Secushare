@@ -55,14 +55,16 @@ func newGossiper(address, namee, uiport string, peers []string, simpleMode bool)
 
 	gossipAddr, gossipConn := udpConnection(address)
 	clientAddr, clientConn := udpConnection(fmt.Sprintf("%s:%s", ip, uiport))
+
 	return &nodes.Gossiper{
-		GossipAddr: gossipAddr,
-		GossipConn: gossipConn,
-		ClientAddr: clientAddr,
-		ClientConn: clientConn,
-		Name:       namee,
-		Peers:      peers,
-		SimpleMode: simpleMode,
+		GossipAddr:     gossipAddr,
+		GossipConn:     gossipConn,
+		ClientAddr:     clientAddr,
+		ClientConn:     clientConn,
+		Name:           namee,
+		Peers:          peers,
+		SimpleMode:     simpleMode,
+		RumorsReceived: make(map[string][]*packets.RumorMessage),
 	}
 }
 
@@ -121,7 +123,7 @@ func handleGossip(gossiper *nodes.Gossiper, message []byte, rlen int, raddr *net
 			packet.Simple.Contents)
 		fmt.Println(strings.Join(gossiper.Peers[:], ","))
 	} else if packet.Rumor != nil {
-
+		gossiper.SendPacketRandom(packet)
 	} else if packet.StatusPacket != nil {
 
 	}
