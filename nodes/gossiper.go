@@ -99,12 +99,20 @@ func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessa
 
 }
 
-func (gossiper *Gossiper) HighestRumor(origin string) *packets.RumorMessage {
+func (gossiper *Gossiper) GetNextRumorID(origin string) uint32 {
 	gossiper.rumorsMux.Lock()
 	defer gossiper.rumorsMux.Unlock()
-	list := gossiper.RumorsReceived[origin]
-	if len(list) == 0 {
-		return nil
+	rumors := gossiper.RumorsReceived[origin]
+	if len(rumors) == 0 {
+		return 1
+	} else {
+		prevID := uint32(0)
+		for _, rumor := range rumors {
+			if rumor.ID != uint32(prevID+1) {
+				return prevID + 1
+			}
+			prevID += 1
+		}
+		return rumors[len(rumors)-1].ID + 1
 	}
-	return list[len(list)-1]
 }

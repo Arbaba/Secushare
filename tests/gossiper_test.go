@@ -29,6 +29,7 @@ func TestGetRumor(t *testing.T) {
 
 }
 
+/*
 func TestHighestRumor(t *testing.T) {
 	rumors := make(map[string][]*packets.RumorMessage)
 	gossiper := nodes.Gossiper{RumorsReceived: rumors}
@@ -39,6 +40,43 @@ func TestHighestRumor(t *testing.T) {
 	gossiper.StoreRumor(packets.GossipPacket{Rumor: &lowerRumor})
 	assertEqual(t, gossiper.HighestRumor(highestRumor.Origin), &highestRumor)
 
+}*/
+
+func TestGetNextRumorIDEmpty(t *testing.T) {
+	rumors := make(map[string][]*packets.RumorMessage)
+	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+	assertEqual(t, gossiper.GetNextRumorID("A"), uint32(1))
+}
+
+func TestGetNextRumorIDAskTwo(t *testing.T) {
+	rumor := packets.RumorMessage{Origin: "A", ID: 1, Text: "hello"}
+	rumors := make(map[string][]*packets.RumorMessage)
+	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+	gossiper.StoreRumor(packets.GossipPacket{Rumor: &rumor})
+	assertEqual(t, gossiper.GetNextRumorID("A"), uint32(2))
+}
+
+func TestGetNextRumorID(t *testing.T) {
+	rumors := make(map[string][]*packets.RumorMessage)
+	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+
+	//Init rumors
+	for _, id := range []uint32{1, 2, 3, 5, 6, 7, 10} {
+		rumor := packets.RumorMessage{Origin: "A", ID: id, Text: "hello"}
+		gossiper.StoreRumor(packets.GossipPacket{Rumor: &rumor})
+	}
+
+	var askedIDs []uint32
+	for i := 0; i < 4; i++ {
+		nextID := gossiper.GetNextRumorID("A")
+		askedIDs = append(askedIDs, nextID)
+		rumor := packets.RumorMessage{Origin: "A", ID: nextID, Text: "hello"}
+		gossiper.StoreRumor(packets.GossipPacket{Rumor: &rumor})
+	}
+	solution := []uint32{4, 8, 9, 11}
+	for i, id := range askedIDs {
+		assertEqual(t, id, solution[i])
+	}
 }
 
 func TestRumorsOrdered(t *testing.T) {
