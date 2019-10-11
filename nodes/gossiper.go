@@ -59,9 +59,10 @@ func (gossiper *Gossiper) SimpleBroadcast(packet packets.GossipPacket, sourceAdd
 	}
 }
 
-func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) {
+func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) string {
 	idx := rand.Intn(len(gossiper.Peers))
 	gossiper.SendPacket(packet, gossiper.Peers[idx])
+	return gossiper.Peers[idx]
 }
 
 func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {

@@ -88,6 +88,15 @@ func handleClient(gossiper *nodes.Gossiper, message []byte, rlen int) {
 		fmt.Println(strings.Join(gossiper.Peers[:], ","))
 	} else {
 
+		packet := packets.GossipPacket{
+			Rumor: &packets.RumorMessage{
+				Origin: gossiper.RelayAddress(),
+				ID:     gossiper.GetNextRumorID(gossiper.Name),
+				Text:   msg.Text},
+		}
+		gossiper.StoreRumor(packet)
+		target := gossiper.SendPacketRandom(packet)
+		fmt.Println("MONGERING %s", target)
 	}
 }
 
@@ -122,8 +131,14 @@ func handleGossip(gossiper *nodes.Gossiper, message []byte, rlen int, raddr *net
 			sourceAddress,
 			packet.Simple.Contents)
 		fmt.Println(strings.Join(gossiper.Peers[:], ","))
-	} else if packet.Rumor != nil {
-		gossiper.SendPacketRandom(packet)
+	} else if rumor := packet.Rumor; packet.Rumor != nil {
+		fmt.Println("RUMOR origin %s from %s contents %s",
+			rumor.Origin,
+			fmt.Sprintf("%s:%s", raddr.IP, raddr.Port),
+			rumor.Text)
+		gossiper.StoreRumor(packet)
+		target := gossiper.SendPacketRandom(packet)
+		fmt.Println("MONGERING %s", target)
 	} else if packet.StatusPacket != nil {
 
 	}
