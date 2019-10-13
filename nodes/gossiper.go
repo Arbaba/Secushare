@@ -21,7 +21,9 @@ type Gossiper struct {
 	SimpleMode     bool
 	StatusPacket   packets.StatusPacket
 	RumorsReceived map[string][]*packets.RumorMessage
+	PendingAcks    map[string][]packets.PeerStatus
 	rumorsMux      sync.Mutex
+	pendingAcksMux sync.Mutex
 }
 
 func (gossiper *Gossiper) AddPeer(address string) {
@@ -44,8 +46,9 @@ func (gossiper *Gossiper) RelayAddress() string {
 func (gossiper *Gossiper) SendPacket(packet packets.GossipPacket, address string) {
 
 	encodedPacket, err := protobuf.Encode(&packet)
-	conn, err := net.Dial("udp", address)
-	_, err = conn.Write(encodedPacket)
+	//conn, err := net.Dial("udp", address)
+	udpAddr, _ := net.ResolveUDPAddr("udp4", address)
+	_, err = gossiper.GossipConn.WriteToUDP(encodedPacket, udpAddr)
 	if err != nil {
 		fmt.Println("Error : ", err)
 	}
@@ -63,6 +66,21 @@ func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) string {
 	idx := rand.Intn(len(gossiper.Peers))
 	gossiper.SendPacket(packet, gossiper.Peers[idx])
 	return gossiper.Peers[idx]
+}
+
+func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, exceptsAddresss string) string {
+	if len(gossiper.Peers) == 0 || len(gossiper.Peers) == 1 {
+		return ""
+	} else {
+		for {
+			idx := rand.Intn(len(gossiper.Peers))
+			target := gossiper.Peers[idx]
+			if target != exceptsAddresss {
+				gossiper.SendPacket(packet, target)
+				return target
+			}
+		}
+	}
 }
 
 func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
@@ -86,6 +104,7 @@ func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
 	}
 }
 
+//Might be better to return a copy
 func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessage {
 	gossiper.rumorsMux.Lock()
 	defer gossiper.rumorsMux.Unlock()
@@ -116,4 +135,70 @@ func (gossiper *Gossiper) GetNextRumorID(origin string) uint32 {
 		}
 		return rumors[len(rumors)-1].ID + 1
 	}
+}
+
+func (gossiper *Gossiper) GetStatus() []packets.PeerStatus {
+	var status []packets.PeerStatus
+	for name := range gossiper.RumorsReceived {
+		status = append(status, packets.PeerStatus{name, gossiper.GetNextRumorID(name)})
+	}
+	return status
+}
+
+func (gossiper *Gossiper) GetStatusPacket() *packets.StatusPacket {
+	return &packets.StatusPacket{Want: gossiper.GetStatus()}
+}
+
+//Returns the currentStatuses which have a greater nextID or do not appear in ackStatuses
+func (gossiper *Gossiper) CompareStatus(ackStatuses, currentStatuses []packets.PeerStatus) []packets.PeerStatus {
+	var statuses []packets.PeerStatus
+	for _, s := range currentStatuses {
+		keep := true
+		newStatus := packets.PeerStatus{Identifier: s.Identifier, NextID: uint32(1)}
+		for _, t := range ackStatuses {
+			if s.Identifier == t.Identifier {
+				if s.NextID <= t.NextID {
+					keep = false
+				} else {
+					newStatus.NextID = t.NextID
+				}
+				break
+			}
+
+		}
+		if keep == true {
+			statuses = append(statuses, newStatus)
+		}
+	}
+
+	return statuses
+}
+
+func (gossiper *Gossiper) EnqueueForAck(peerAddress, originName string, newNextID uint32) {
+	gossiper.pendingAcksMux.Lock()
+	defer gossiper.pendingAcksMux.Unlock()
+	gossiper.PendingAcks[originName] = append(gossiper.PendingAcks[peerAddress], packets.PeerStatus{originName, newNextID})
+}
+
+func (gossiper *Gossiper) AckStatusPacket(packet *packets.StatusPacket, peerAddress string, sendLastRumors bool) []string {
+	gossiper.pendingAcksMux.Lock()
+	defer gossiper.pendingAcksMux.Unlock()
+	var mongeringWith []string
+	for _, status := range packet.Want {
+		var filteredQueue []packets.PeerStatus
+		//For each peer remove all pendingStatuses where the ID is smaller than the NextID
+		for _, pendingStatus := range gossiper.PendingAcks[peerAddress] {
+			if pendingStatus.Identifier == status.Identifier && pendingStatus.NextID > status.NextID {
+				filteredQueue = append(filteredQueue, pendingStatus)
+			} else if sendLastRumors && pendingStatus.Identifier == status.Identifier && pendingStatus.NextID == status.NextID {
+				packet := packets.GossipPacket{Rumor: gossiper.GetRumor(status.Identifier, status.NextID)}
+				address := gossiper.SendPacketRandomExcept(packet, peerAddress)
+				if address != "" {
+					mongeringWith = append(mongeringWith, address)
+				}
+			}
+		}
+		gossiper.PendingAcks[peerAddress] = filteredQueue
+	}
+	return mongeringWith
 }

@@ -6,6 +6,7 @@ import (
 	"Peerster/packets"
 	"flag"
 	"fmt"
+	"math/rand"
 	"net"
 	"protobuf"
 	"strings"
@@ -65,6 +66,7 @@ func newGossiper(address, namee, uiport string, peers []string, simpleMode bool)
 		Peers:          peers,
 		SimpleMode:     simpleMode,
 		RumorsReceived: make(map[string][]*packets.RumorMessage),
+		PendingAcks:    make(map[string][]packets.PeerStatus),
 	}
 }
 
@@ -85,7 +87,7 @@ func handleClient(gossiper *nodes.Gossiper, message []byte, rlen int) {
 
 		gossiper.SimpleBroadcast(packet, sourceAddress)
 		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
-		fmt.Println(strings.Join(gossiper.Peers[:], ","))
+		fmt.Println("PEERS ", strings.Join(gossiper.Peers[:], ","))
 	} else {
 
 		packet := packets.GossipPacket{
@@ -95,8 +97,11 @@ func handleClient(gossiper *nodes.Gossiper, message []byte, rlen int) {
 				Text:   msg.Text},
 		}
 		gossiper.StoreRumor(packet)
+		//Créer fonction rumorMonger
+		//Dans cette fonction on crée une goroutine et alloue un channel + wait for 10 sec
+
 		target := gossiper.SendPacketRandom(packet)
-		fmt.Println("MONGERING %s", target)
+		fmt.Printf("MONGERING with %s\n", target)
 	}
 }
 
@@ -113,33 +118,87 @@ func listenClient(gossiper *nodes.Gossiper) {
 
 	}
 }
+func logPeers(gossiper *nodes.Gossiper) {
+	fmt.Println("PEERS ", strings.Join(gossiper.Peers[:], ","))
+}
+
+func logStatusPacket(packet *packets.StatusPacket, address string) {
+	s := fmt.Sprintf("STATUS from %s", address)
+	for _, status := range packet.Want {
+		s += status.String()
+	}
+	fmt.Println(s)
+}
+
+func logRumor(rumor *packets.RumorMessage, peerAddr string) {
+	fmt.Printf("RUMOR origin %s from %s contents %s\n",
+		rumor.Origin,
+		peerAddr,
+		rumor.Text)
+}
+
+func logSimpleMessage(packet *packets.SimpleMessage) {
+	fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
+		packet.OriginalName,
+		packet.RelayPeerAddr,
+		packet.Contents)
+}
+
+func logMongering(target string) {
+	fmt.Printf("MONGERING with %s\n", target)
+}
+
+func logSync(peerAddr string) {
+	fmt.Printf("IN SYNC WITH %s\n", peerAddr)
+}
 
 func handleGossip(gossiper *nodes.Gossiper, message []byte, rlen int, raddr *net.UDPAddr) {
 	var packet packets.GossipPacket
 	protobuf.Decode(message[:rlen], &packet)
+	logPeers(gossiper)
+	peerAddr := fmt.Sprintf("%s:%d", raddr.IP, raddr.Port)
 
 	//if packet.Simple.OriginalName != gossiper.name {
 	if packet.Simple != nil {
 		gossiper.AddPeer(packet.Simple.RelayPeerAddr)
-
 		sourceAddress := packet.Simple.RelayPeerAddr
 		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
 		gossiper.SimpleBroadcast(packet, sourceAddress)
-
-		fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
-			packet.Simple.OriginalName,
-			sourceAddress,
-			packet.Simple.Contents)
-		fmt.Println(strings.Join(gossiper.Peers[:], ","))
+		logSimpleMessage(packet.Simple)
+		logPeers(gossiper)
 	} else if rumor := packet.Rumor; packet.Rumor != nil {
-		fmt.Println("RUMOR origin %s from %s contents %s",
-			rumor.Origin,
-			fmt.Sprintf("%s:%s", raddr.IP, raddr.Port),
-			rumor.Text)
+
+		logRumor(rumor, peerAddr)
+		gossiper.AddPeer(peerAddr)
 		gossiper.StoreRumor(packet)
-		target := gossiper.SendPacketRandom(packet)
-		fmt.Println("MONGERING %s", target)
+		target := gossiper.SendPacketRandomExcept(packet, peerAddr)
+		//gossiper.EnqueueForAck(target, packet.Rumor.Origin, packet.Rumor.ID+1)
+		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, peerAddr)
+		logMongering(target)
+
 	} else if packet.StatusPacket != nil {
+		//Il faut donc renvoyer le statusPacket à un channel du gossiper
+		logStatusPacket(packet.StatusPacket, peerAddr)
+		want := packet.StatusPacket.Want
+		gossiperChoices := gossiper.CompareStatus(gossiper.GetStatus(), want)
+		targetChoices := gossiper.CompareStatus(want, gossiper.GetStatus())
+		mongeringAddresses := gossiper.AckStatusPacket(packet.StatusPacket, peerAddr, targetChoices == nil && gossiperChoices == nil && rand.Int()%2 == 0)
+
+		if targetChoices != nil {
+			idx := rand.Intn(len(targetChoices))
+			choosenStatus := targetChoices[idx]
+			rumor := gossiper.GetRumor(choosenStatus.Identifier, choosenStatus.NextID)
+			packet := packets.GossipPacket{Rumor: rumor}
+			gossiper.SendPacket(packet, peerAddr)
+		} else if gossiperChoices != nil {
+			statusPkt := packets.StatusPacket{gossiper.GetStatus()}
+			gossiper.SendPacket(packets.GossipPacket{StatusPacket: &statusPkt}, peerAddr)
+		} else {
+			logSync(peerAddr)
+			for _, ipport := range mongeringAddresses {
+				logMongering(ipport)
+			}
+		}
 
 	}
 	//}
