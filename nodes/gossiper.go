@@ -8,6 +8,7 @@ import (
 	"github.com/dedis/protobuf"
 	"sort"
 	"sync"
+	"strings"
 )
 
 // Gossiper : Represents the gossiper
@@ -30,6 +31,31 @@ type Gossiper struct {
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
 }
+
+
+func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64) *Gossiper {
+	splitted := strings.Split(address, ":")
+	ip := splitted[0]
+
+	gossipAddr, gossipConn := UdpConnection(address)
+	clientAddr, clientConn := UdpConnection(fmt.Sprintf("%s:%s", ip, uiport))
+
+	return &Gossiper{
+		GossipAddr:     gossipAddr,
+		GossipConn:     gossipConn,
+		ClientAddr:     clientAddr,
+		ClientConn:     clientConn,
+		Name:           namee,
+		Peers:          peers,
+		SimpleMode:     simpleMode,
+		RumorsReceived: make(map[string][]*packets.RumorMessage),
+		PendingAcks:    make(map[string][]packets.PeerStatus),
+		AcksChannels:   make(map[string]*chan packets.PeerStatus),
+		VectorClock:    make(map[string]*packets.PeerStatus),
+		AntiEntropy:    antiEntropy,
+	}
+}
+
 
 func (gossiper *Gossiper) AddPeer(address string) {
 	containsAddr := false
