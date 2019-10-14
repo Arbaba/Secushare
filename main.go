@@ -159,11 +159,11 @@ func handleGossip(gossiper *nodes.Gossiper, message []byte, rlen int, raddr *net
 	if packet.Simple != nil {
 		gossiper.AddPeer(packet.Simple.RelayPeerAddr)
 		gossiper.LogPeers()
+		gossiper.LogSimpleMessage(packet.Simple)
 
 		sourceAddress := packet.Simple.RelayPeerAddr
 		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
 		gossiper.SimpleBroadcast(packet, sourceAddress)
-		logSimpleMessage(packet.Simple)
 		logPeers(gossiper)
 	} else if rumor := packet.Rumor; packet.Rumor != nil {
 		gossiper.LogRumor(rumor, peerAddr)
