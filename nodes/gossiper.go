@@ -24,6 +24,7 @@ type Gossiper struct {
 	PendingAcks     map[string][]packets.PeerStatus
 	AcksChannels    map[string]*chan packets.PeerStatus
 	VectorClock     map[string]*packets.PeerStatus
+	AntiEntropy     int64
 	rumorsMux       sync.Mutex
 	pendingAcksMux  sync.Mutex
 	AcksChannelsMux sync.Mutex
