@@ -100,6 +100,8 @@ func handleClient(gossiper *nodes.Gossiper, message []byte, rlen int) {
 				ID:     gossiper.GetNextRumorID(gossiper.Name),
 				Text:   msg.Text},
 		}
+		fmt.Printf("CLIENT MESSAGE %s\n", msg.Text)
+
 		gossiper.StoreRumor(packet)
 		//Créer fonction rumorMonger
 		//Dans cette fonction on crée une goroutine et alloue un channel + wait for 10 sec
