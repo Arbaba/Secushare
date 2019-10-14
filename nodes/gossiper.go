@@ -12,18 +12,22 @@ import (
 
 // Gossiper : Represents the gossiper
 type Gossiper struct {
-	GossipAddr     *net.UDPAddr
-	GossipConn     *net.UDPConn
-	ClientAddr     *net.UDPAddr
-	ClientConn     *net.UDPConn
-	Name           string
-	Peers          []string
-	SimpleMode     bool
-	StatusPacket   packets.StatusPacket
-	RumorsReceived map[string][]*packets.RumorMessage
-	PendingAcks    map[string][]packets.PeerStatus
-	rumorsMux      sync.Mutex
-	pendingAcksMux sync.Mutex
+	GossipAddr      *net.UDPAddr
+	GossipConn      *net.UDPConn
+	ClientAddr      *net.UDPAddr
+	ClientConn      *net.UDPConn
+	Name            string
+	Peers           []string
+	SimpleMode      bool
+	StatusPacket    packets.StatusPacket
+	RumorsReceived  map[string][]*packets.RumorMessage
+	PendingAcks     map[string][]packets.PeerStatus
+	AcksChannels    map[string]*chan packets.PeerStatus
+	VectorClock     map[string]*packets.PeerStatus
+	rumorsMux       sync.Mutex
+	pendingAcksMux  sync.Mutex
+	AcksChannelsMux sync.Mutex
+	VectorClockMux  sync.Mutex
 }
 
 func (gossiper *Gossiper) AddPeer(address string) {
@@ -69,7 +73,7 @@ func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) string {
 }
 
 func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, exceptsAddresss string) string {
-	if len(gossiper.Peers) == 0 || len(gossiper.Peers) == 1 {
+	if len(gossiper.Peers) == 0 || len(gossiper.Peers) == 1 && gossiper.Peers[0] == exceptsAddresss {
 		return ""
 	} else {
 		for {
@@ -101,6 +105,21 @@ func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
 			gossiper.RumorsReceived[rumor.Origin] = append(list, rumor)
 
 		}
+		gossiper.UpdateVectorClock(rumor)
+
+	}
+
+}
+
+func (gossiper *Gossiper) UpdateVectorClock(rumor *packets.RumorMessage) {
+	gossiper.VectorClockMux.Lock()
+	gossiper.VectorClockMux.Unlock()
+	status, found := gossiper.VectorClock[rumor.Origin]
+	if found && rumor.ID >= status.NextID {
+		status.NextID = rumor.ID + 1
+	} else if !found {
+		status = &packets.PeerStatus{Identifier: rumor.Origin, NextID: rumor.ID + 1}
+		gossiper.VectorClock[rumor.Origin] = status
 	}
 }
 
@@ -114,6 +133,15 @@ func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessa
 	})
 	if idx < len(list) && list[idx].ID == id {
 		return list[idx]
+	}
+	return nil
+
+}
+
+func (gossiper *Gossiper) GetRumorPacket(origin string, id uint32) *packets.GossipPacket {
+	rumor := gossiper.GetRumor(origin, id)
+	if rumor != nil {
+		return &packets.GossipPacket{Rumor: gossiper.GetRumor(origin, id)}
 	}
 	return nil
 
@@ -138,17 +166,26 @@ func (gossiper *Gossiper) GetNextRumorID(origin string) uint32 {
 }
 
 func (gossiper *Gossiper) GetStatus() []packets.PeerStatus {
-	var status []packets.PeerStatus
-	for name := range gossiper.RumorsReceived {
-		status = append(status, packets.PeerStatus{name, gossiper.GetNextRumorID(name)})
+	/*
+		var status []packets.PeerStatus
+		for name := range gossiper.RumorsReceived {
+			status = append(status, packets.PeerStatus{name, gossiper.GetNextRumorID(name)})
+		}
+		return status*/
+	var peerStatus []packets.PeerStatus
+	gossiper.VectorClockMux.Lock()
+	defer gossiper.VectorClockMux.Unlock()
+	for _, v := range gossiper.VectorClock {
+		peerStatus = append(peerStatus, *v)
 	}
-	return status
+	return peerStatus
 }
 
 func (gossiper *Gossiper) GetStatusPacket() *packets.StatusPacket {
 	return &packets.StatusPacket{Want: gossiper.GetStatus()}
 }
 
+/*
 //Returns the currentStatuses which have a greater nextID or do not appear in ackStatuses
 func (gossiper *Gossiper) CompareStatus(ackStatuses, currentStatuses []packets.PeerStatus) []packets.PeerStatus {
 	var statuses []packets.PeerStatus
@@ -202,3 +239,4 @@ func (gossiper *Gossiper) AckStatusPacket(packet *packets.StatusPacket, peerAddr
 	}
 	return mongeringWith
 }
+*/
