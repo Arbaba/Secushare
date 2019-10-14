@@ -1,11 +1,12 @@
 package test
 
 import (
-	"Peerster/nodes"
-	"Peerster/packets"
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/Arbaba/Peerster/nodes"
+	"github.com/Arbaba/Peerster/packets"
 )
 
 func assertEqual(t *testing.T, a interface{}, b interface{}) {
@@ -15,8 +16,15 @@ func assertEqual(t *testing.T, a interface{}, b interface{}) {
 
 	t.Fatal(fmt.Sprintf("%v != %v", a, b))
 }
+
+/*
+func initGossiper(){
+	rumors := make(map[string][]*packets.RumorMessage)
+	vectorClock := make(map[string]*packets.PeerStatus)
+}*/
 func TestGetRumor(t *testing.T) {
 	rumors := make(map[string][]*packets.RumorMessage)
+
 	gossiper := nodes.Gossiper{RumorsReceived: rumors}
 	rumor := packets.RumorMessage{Origin: "A", ID: 10, Text: "hello"}
 	lowerRumor := packets.RumorMessage{Origin: "A", ID: 9, Text: "World"}

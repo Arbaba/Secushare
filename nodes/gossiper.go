@@ -1,11 +1,11 @@
 package nodes
 
 import (
-	"Peerster/packets"
+	"github.com/Arbaba/Peerster/packets"
 	"fmt"
 	"math/rand"
 	"net"
-	"protobuf"
+	"github.com/dedis/protobuf"
 	"sort"
 	"sync"
 )

@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"protobuf"
-	"Peerster/packets"
+	"github.com/dedis/protobuf"
+	"github.com/Arbaba/Peerster/packets"
 )
 
 func main() {

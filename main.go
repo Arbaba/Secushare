@@ -1,13 +1,13 @@
 package main
 
 import (
-	//	"Peerster/nodes"
-	"Peerster/nodes"
-	"Peerster/packets"
+	//	"github.com/Arbaba/Peerster/nodes"
+	"github.com/Arbaba/Peerster/nodes"
+	"github.com/Arbaba/Peerster/packets"
 	"flag"
 	"fmt"
 	"net"
-	"protobuf"
+	"github.com/dedis/protobuf"
 	"strings"
 )
 
