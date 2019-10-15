@@ -76,7 +76,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		gossiper.StoreLastPacket(packet)
 
 		gossiper.StoreRumor(packet)
-		go gossiper.RumorMonger(&packet, gossiper.RelayAddress())
+		gossiper.RumorMonger(&packet, gossiper.RelayAddress())
 	}
 	gossiper.LogPeers()
 }
@@ -108,11 +108,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 		gossiper.StoreRumor(packet)
 		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, peerAddr)
+		gossiper.RumorMonger(&packet, peerAddr)
 
-		target := gossiper.SendPacketRandomExcept(packet, peerAddr)
-		if target != "" {
-			gossiper.LogMongering(target)
-		}
 
 	} else if packet.StatusPacket != nil {
 		gossiper.LogStatusPacket(packet.StatusPacket, peerAddr)
