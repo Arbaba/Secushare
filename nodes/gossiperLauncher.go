@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"github.com/Arbaba/Peerster/packets"
+
 	"fmt"
 	"net"
 	"github.com/dedis/protobuf"
@@ -18,6 +19,8 @@ func (gossiper *Gossiper) LaunchGossiperGUI(){
 	go gossiper.AntiEntropyLoop()
 	go listenClient(gossiper)
 	go listenGossip(gossiper)
+	RunServer(gossiper)
+
 }
 
 func UdpConnection(address string) (*net.UDPAddr, *net.UDPConn) {
@@ -54,7 +57,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		sourceAddress := packet.Simple.RelayPeerAddr
 		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
 		packet.Simple.OriginalName = gossiper.Name
-
+		gossiper.StoreLastPacket(packet)
 		gossiper.SimpleBroadcast(packet, sourceAddress)
 		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
 		fmt.Println("PEERS ", strings.Join(gossiper.Peers[:], ","))
@@ -67,6 +70,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 				Text:   msg.Text},
 		}
 		fmt.Printf("CLIENT MESSAGE %s\n", msg.Text)
+		gossiper.StoreLastPacket(packet)
 
 		gossiper.StoreRumor(packet)
 		//Créer fonction rumorMonger
@@ -81,7 +85,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 	var packet packets.GossipPacket
 	protobuf.Decode(message[:rlen], &packet)
 	peerAddr := fmt.Sprintf("%s:%d", raddr.IP, raddr.Port)
-
+	gossiper.StoreLastPacket(packet)
 	if packet.Simple != nil {
 		gossiper.AddPeer(packet.Simple.RelayPeerAddr)
 		gossiper.LogPeers()

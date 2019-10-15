@@ -1,0 +1,31 @@
+#chatbox{
+}
+
+#metadata{
+}
+
+.message{
+    border: 2px solid lightgray;
+    border-radius: 5px;
+}
+.ownMessage {
+    text-align:right;
+    padding:5px;
+    background-color:lightgreen
+}
+
+.extMessage {
+    text-align:left;
+    background-color:lightblue
+}
+
+
+.messagesList{
+    max-height: 400px;
+    list-style: none;
+    padding:0px;
+}
+
+.peersList{
+    max-height:400px;
+}

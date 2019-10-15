@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>Bare - Start Bootstrap Template</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/custom.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark static-top">
+    <div class="container">
+      <a class="navbar-brand" href="#">Peerster</a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarResponsive">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item active">
+            <a class="nav-link" href="#">Home
+              <span class="sr-only">(current)</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">About</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Services</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Contact</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page Content -->
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-6" id="chatbox">
+        <h2>Chatbox</h2>
+        <ul class="messagesList overflow-auto" id="messagesList">     
+        </ul>
+          <div class="input-group">
+            <textarea class="form-control" aria-label="With textarea" placeholder="Please type your message..." id="newMsg"></textarea>
+            <button type="button" class="btn btn-primary" id="sendmsg" onclick="sendMsg($('#newMsg').val())">Send</button>
+
+          </div>
+          
+      </div>
+      <div class="col-lg-4" id="metadata">
+        <h3>Peer A</h3>
+
+        <h2>Peers</h2>
+        <div class="peersList list-group overflow-auto">
+          <a href="#" class="list-group-item list-group-item-action active">aaa
+        </a>
+        </div>
+        <br>
+        <div class="input-group mb-3">
+        
+          <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" id="newPeer">
+          <button type="button" class="btn btn-primary" id="addPeer" onclick="addPeer($('#newPeer').val())">Add Peer</button>
+
+        </div>
+        
+
+        
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src="vendor/jquery/jquery.js"></script>
+  <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script>
+      function addPeer(address){
+        console.log(address)
+        $.get(`/peers/add/${address}`, function(d){})
+      }
+      
+      function sendMsg(msg){
+        $.get(`/messages/send/${msg}`, function(d){})
+
+        console.log(msg)
+      }
+
+      setInterval(function(){
+        console.log('a')
+        $.getJSON(`/messages/recentList`, function(d){
+          console.log('msgs',d)
+          if(d){
+            if(d['Messages']){
+              d['Messages'].forEach(msg => {
+                newmsg = d3.select('#messagesList')
+                  .append('li')
+                  .append('p')
+                  .text(`${msg.Origin}: ${msg.Text}`)
+                if(msg.Origin != d['PeerID']){
+                  newmsg.attr('class','message extMessage')
+                }else {
+                  newmsg.attr('class','message ownMessage')
+
+                }
+                                
+              });
+          
+            }
+            
+          }
+      
+        })
+      }, 5000)
+      </script>  
+</body>
+
+</html>

@@ -26,14 +26,17 @@ type Gossiper struct {
 	AcksChannels    map[string]*chan packets.PeerStatus
 	VectorClock     map[string]*packets.PeerStatus
 	AntiEntropy     int64
+	LastPackets		[]packets.GossipPacket
+	GUIPort		string
 	rumorsMux       sync.Mutex
 	pendingAcksMux  sync.Mutex
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
+	LastPacketsMux	sync.Mutex	
 }
 
 
-func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64) *Gossiper {
+func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string) *Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
 
@@ -53,6 +56,8 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		AcksChannels:   make(map[string]*chan packets.PeerStatus),
 		VectorClock:    make(map[string]*packets.PeerStatus),
 		AntiEntropy:    antiEntropy,
+		GUIPort: 		guiPort,
+	
 	}
 }
 
@@ -113,6 +118,36 @@ func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, ex
 		}
 	}
 }
+
+func (gossiper *Gossiper) StoreLastPacket(packet packets.GossipPacket){
+	if gossiper.SimpleMode && packet.Simple != nil || !gossiper.SimpleMode && packet.Rumor != nil {
+		gossiper.LastPacketsMux.Lock()
+		defer gossiper.LastPacketsMux.Unlock()
+		gossiper.LastPackets = append(gossiper.LastPackets, packet)
+
+	}
+}
+
+func (gossiper *Gossiper) GetLastRumorsFlush() []packets.RumorMessage{
+	gossiper.LastPacketsMux.Lock()
+	defer gossiper.LastPacketsMux.Unlock()
+	var copy  []packets.RumorMessage = nil
+
+	for _, packet := range gossiper.LastPackets{
+		if packet.Simple != nil {
+
+			s := packet.Simple
+			copy = append(copy, packets.RumorMessage{s.OriginalName, 0, s.Contents})
+		}else if packet.Rumor != nil {
+			copy = append(copy, *packet.Rumor)
+		}
+
+	}
+
+	gossiper.LastPackets = nil
+	return copy
+}
+
 
 func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
 	if rumor := packet.Rumor; rumor != nil {
