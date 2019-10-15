@@ -9,6 +9,7 @@ import (
 func main() {
 	uiport, gossipAddr, name, peers, simpleMode, antiEntropy, guiPort := parseCmd()
 	gossiper := nodes.NewGossiper(*gossipAddr, *name, *uiport, peers, *simpleMode, *antiEntropy, *guiPort)
+	//guiPort mandatory to run the webserver
 	if guiPort != nil {
 		gossiper.LaunchGossiperGUI()
 	}else {

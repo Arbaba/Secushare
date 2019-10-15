@@ -1,12 +1,14 @@
 package nodes
+/*
+This file serves to handle the high level behavior of the gossiper
 
+*/
 import (
 	"github.com/Arbaba/Peerster/packets"
 
 	"fmt"
 	"net"
 	"github.com/dedis/protobuf"
-	"strings"
 )
 
 func (gossiper *Gossiper) LaunchGossiperCLI(){
@@ -24,11 +26,11 @@ func (gossiper *Gossiper) LaunchGossiperGUI(){
 }
 
 func UdpConnection(address string) (*net.UDPAddr, *net.UDPConn) {
-	//TODO: Check for errors
 	udpAddr, _ := net.ResolveUDPAddr("udp4", address)
 	udpConn, _ := net.ListenUDP("udp4", udpAddr)
 	return udpAddr, udpConn
 }
+
 func listenClient(gossiper *Gossiper) {
 	conn := gossiper.ClientConn
 	defer conn.Close()
@@ -43,6 +45,7 @@ func listenClient(gossiper *Gossiper) {
 	}
 }
 
+//Gossiper behavior on reception on a client message
 func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 	var msg packets.Message
 	protobuf.Decode(message[:rlen], &msg)
@@ -59,28 +62,27 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		packet.Simple.OriginalName = gossiper.Name
 		gossiper.StoreLastPacket(packet)
 		gossiper.SimpleBroadcast(packet, sourceAddress)
-		fmt.Printf("CLIENT MESSAGE %s\n", packet.Simple.Contents)
-		fmt.Println("PEERS ", strings.Join(gossiper.Peers[:], ","))
+		gossiper.LogClientMsg(packet.Simple.Contents)
+		gossiper.LogPeers()
 	} else {
-
+		//RumorMongering
 		packet := packets.GossipPacket{
 			Rumor: &packets.RumorMessage{
 				Origin: gossiper.Name,
 				ID:     gossiper.GetNextRumorID(gossiper.Name),
 				Text:   msg.Text},
 		}
-		fmt.Printf("CLIENT MESSAGE %s\n", msg.Text)
+		gossiper.LogClientMsg(msg.Text)
 		gossiper.StoreLastPacket(packet)
 
 		gossiper.StoreRumor(packet)
-		//Créer fonction rumorMonger
-		//Dans cette fonction on crée une goroutine et alloue un channel + wait for 10 sec
 		go gossiper.RumorMonger(&packet, gossiper.RelayAddress())
 	}
+	gossiper.LogPeers()
 }
 
 
-
+//Gossiper behavior on reception of another node packet
 func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAddr) {
 	var packet packets.GossipPacket
 	protobuf.Decode(message[:rlen], &packet)
@@ -94,7 +96,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		sourceAddress := packet.Simple.RelayPeerAddr
 		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
 		gossiper.SimpleBroadcast(packet, sourceAddress)
-		gossiper.LogPeers()
 	} else if rumor := packet.Rumor; packet.Rumor != nil {
 		gossiper.LogRumor(rumor, peerAddr)
 		gossiper.AddPeer(peerAddr)
@@ -102,6 +103,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 		rumor := gossiper.GetRumor(rumor.Origin, rumor.ID)
 		if rumor != nil {
+			//Rumor was already received, hence we discard the packet
 			return
 		}
 		gossiper.StoreRumor(packet)
@@ -114,7 +116,12 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 	} else if packet.StatusPacket != nil {
 		gossiper.LogStatusPacket(packet.StatusPacket, peerAddr)
+		gossiper.AddPeer(peerAddr)
+		gossiper.LogPeers()
 		for _, status := range packet.StatusPacket.Want {
+			//generate and identifier to retrieve to correct ACK channel
+			//A goroutine with an ackchannel is created for each rumor sent. 
+			//hence we pass the status via the correct channel (see rumormongering.go)
 			ackID := gossiper.AckID(status.Identifier, status.NextID, peerAddr)
 			ackChannel, waitingForIt := gossiper.AcksChannels[ackID]
 			if waitingForIt {

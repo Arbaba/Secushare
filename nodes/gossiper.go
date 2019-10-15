@@ -21,13 +21,13 @@ type Gossiper struct {
 	Peers           []string
 	SimpleMode      bool
 	StatusPacket    packets.StatusPacket
-	RumorsReceived  map[string][]*packets.RumorMessage
-	PendingAcks     map[string][]packets.PeerStatus
-	AcksChannels    map[string]*chan packets.PeerStatus
-	VectorClock     map[string]*packets.PeerStatus
+	RumorsReceived  map[string][]*packets.RumorMessage 	//All rumors received, indexed by origin and sorted by ID
+	PendingAcks     map[string][]packets.PeerStatus 	//not used at the end
+	AcksChannels    map[string]*chan packets.PeerStatus	//Channels to communicate with the right ACK callback
+	VectorClock     map[string]*packets.PeerStatus		//Gossiper Status
 	AntiEntropy     int64
 	LastPackets		[]packets.GossipPacket
-	GUIPort		string
+	GUIPort		string									//Must be non nil to active the server
 	rumorsMux       sync.Mutex
 	pendingAcksMux  sync.Mutex
 	AcksChannelsMux sync.Mutex
@@ -74,7 +74,7 @@ func (gossiper *Gossiper) AddPeer(address string) {
 		gossiper.Peers = append(gossiper.Peers, address)
 	}
 }
-
+//Returns the gossiper address 
 func (gossiper *Gossiper) RelayAddress() string {
 	return fmt.Sprintf("%s:%d", gossiper.GossipAddr.IP, gossiper.GossipAddr.Port)
 }
@@ -82,7 +82,6 @@ func (gossiper *Gossiper) RelayAddress() string {
 func (gossiper *Gossiper) SendPacket(packet packets.GossipPacket, address string) {
 
 	encodedPacket, err := protobuf.Encode(&packet)
-	//conn, err := net.Dial("udp", address)
 	udpAddr, _ := net.ResolveUDPAddr("udp4", address)
 	_, err = gossiper.GossipConn.WriteToUDP(encodedPacket, udpAddr)
 	if err != nil {
@@ -97,11 +96,15 @@ func (gossiper *Gossiper) SimpleBroadcast(packet packets.GossipPacket, sourceAdd
 		}
 	}
 }
-
+//Sends the packet to a random peer and returns the peer address 
 func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) string {
-	idx := rand.Intn(len(gossiper.Peers))
-	gossiper.SendPacket(packet, gossiper.Peers[idx])
-	return gossiper.Peers[idx]
+	if len(gossiper.Peers) > 0{
+		idx := rand.Intn(len(gossiper.Peers))
+		gossiper.SendPacket(packet, gossiper.Peers[idx])
+		return gossiper.Peers[idx]
+	}
+	return ""
+
 }
 
 func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, exceptsAddresss string) string {
@@ -118,7 +121,7 @@ func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, ex
 		}
 	}
 }
-
+//Store all Messages packets received in order. Used to supply the GUI. Discard statuses
 func (gossiper *Gossiper) StoreLastPacket(packet packets.GossipPacket){
 	if gossiper.SimpleMode && packet.Simple != nil || !gossiper.SimpleMode && packet.Rumor != nil {
 		gossiper.LastPacketsMux.Lock()
@@ -127,28 +130,28 @@ func (gossiper *Gossiper) StoreLastPacket(packet packets.GossipPacket){
 
 	}
 }
-
-func (gossiper *Gossiper) GetLastRumorsFlush() []packets.RumorMessage{
+//Returns the last packets as rumors (even for simpleMessages) and clears the list. Used to supply the GUI
+func (gossiper *Gossiper) GetLastRumorsSince(idx int) []packets.RumorMessage{
 	gossiper.LastPacketsMux.Lock()
 	defer gossiper.LastPacketsMux.Unlock()
 	var copy  []packets.RumorMessage = nil
+	if idx  < len(gossiper.LastPackets) && len(gossiper.LastPackets)>0 || idx== 0{
+	
+		for _, packet := range gossiper.LastPackets[idx:]{
+			if packet.Simple != nil {
 
-	for _, packet := range gossiper.LastPackets{
-		if packet.Simple != nil {
+				s := packet.Simple
+				copy = append(copy, packets.RumorMessage{s.OriginalName, 0, s.Contents})
+			}else if packet.Rumor != nil {
+				copy = append(copy, *packet.Rumor)
+			}
 
-			s := packet.Simple
-			copy = append(copy, packets.RumorMessage{s.OriginalName, 0, s.Contents})
-		}else if packet.Rumor != nil {
-			copy = append(copy, *packet.Rumor)
 		}
-
 	}
-
-	gossiper.LastPackets = nil
 	return copy
 }
 
-
+//Stores the rumor in a map of list of ordered rumors. Each key of the map is a node orign
 func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
 	if rumor := packet.Rumor; rumor != nil {
 		gossiper.rumorsMux.Lock()
@@ -172,7 +175,7 @@ func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
 	}
 
 }
-
+//Update the vector clock. Add Status or update nextID
 func (gossiper *Gossiper) UpdateVectorClock(rumor *packets.RumorMessage) {
 	gossiper.VectorClockMux.Lock()
 	gossiper.VectorClockMux.Unlock()
@@ -185,7 +188,7 @@ func (gossiper *Gossiper) UpdateVectorClock(rumor *packets.RumorMessage) {
 	}
 }
 
-//Might be better to return a copy
+//Returns the rumor
 func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessage {
 	gossiper.rumorsMux.Lock()
 	defer gossiper.rumorsMux.Unlock()
@@ -199,7 +202,7 @@ func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessa
 	return nil
 
 }
-
+//Returns a GossipPacket with the rumor
 func (gossiper *Gossiper) GetRumorPacket(origin string, id uint32) *packets.GossipPacket {
 	rumor := gossiper.GetRumor(origin, id)
 	if rumor != nil {
@@ -226,7 +229,7 @@ func (gossiper *Gossiper) GetNextRumorID(origin string) uint32 {
 		return rumors[len(rumors)-1].ID + 1
 	}
 }
-
+//Returns the gossiper status
 func (gossiper *Gossiper) GetStatus() []packets.PeerStatus {
 	/*
 		var status []packets.PeerStatus

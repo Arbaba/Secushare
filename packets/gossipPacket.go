@@ -6,7 +6,3 @@ type GossipPacket struct {
 	Rumor        *RumorMessage
 	StatusPacket *StatusPacket
 }
-
-func (packet GossipPacket) String() string {
-	return packet.Simple.String()
-}

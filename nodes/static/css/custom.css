@@ -7,10 +7,12 @@
 .message{
     border: 2px solid lightgray;
     border-radius: 5px;
+
 }
 .ownMessage {
     text-align:right;
     padding:5px;
+    width: fit-content;
     background-color:lightgreen
 }
 

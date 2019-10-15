@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+//Prints to standard output
 func (gossiper *Gossiper) LogPeers() {
 	fmt.Println("PEERS ", strings.Join(gossiper.Peers[:], ","))
 }
@@ -13,7 +14,7 @@ func (gossiper *Gossiper) LogPeers() {
 func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address string) {
 	s := fmt.Sprintf("STATUS from %s ", address)
 	for i, status := range packet.Want {
-		s += status.String()
+		s += fmt.Sprintf("peer %s nextID %d", status.Identifier, status.NextID)
 		if i != len(packet.Want)-1 {
 			s += " "
 		}
@@ -44,5 +45,10 @@ func (gossiper *Gossiper) LogSync(peerAddr string) {
 }
 
 func (gossiper *Gossiper) LogFlip(target string) {
-	fmt.Printf("FLIPPED COIN sending rumor to ", target)
+	fmt.Printf("FLIPPED COIN sending rumor to %s\n", target)
+}
+
+
+func (gossiper *Gossiper) LogClientMsg(msg string){
+	fmt.Printf("CLIENT MESSAGE %s\n", msg)
 }

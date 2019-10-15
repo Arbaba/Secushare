@@ -4,13 +4,20 @@ import (
 	"github.com/Arbaba/Peerster/packets"
 	"math/rand"
 	"time"
+	"strings"
+	"fmt"
 )
+
+/*
+RumorMongering and status handling
+*/
+
 
 func (gossiper *Gossiper) AckID(identifier string, nextID uint32, senderAddress string) string {
 	return (senderAddress + ";" + identifier + ";" + string(nextID))
 }
 
-func (gossiper *Gossiper) RumorMonger(rumorpkt *packets.GossipPacket, exceptIP string) {
+func (gossiper *Gossiper) RumorMonger(rumorpkt *packets.GossipPacket, exceptIP string) string {
 	rumor := rumorpkt.Rumor
 	gossiper.UpdateVectorClock(rumor)
 	target := gossiper.SendPacketRandomExcept(*rumorpkt, exceptIP)
@@ -21,6 +28,8 @@ func (gossiper *Gossiper) RumorMonger(rumorpkt *packets.GossipPacket, exceptIP s
 		go gossiper.WaitForAck(ackID, target, rumor.ID)
 		gossiper.LogMongering(target)
 	}
+	return target
+
 }
 
 func (gossiper *Gossiper) WaitForAck(ackID string, ackSenderIP string, rumorID uint32) {
@@ -32,8 +41,12 @@ func (gossiper *Gossiper) WaitForAck(ackID string, ackSenderIP string, rumorID u
 	}()
 	select {
 	case <-timeout:
-		//close channel ?
-		return
+		
+		identifier := strings.Split(ackID, ";")[1]
+		fmt.Println(identifier, rumorID)
+		pkt:=gossiper.GetRumorPacket(identifier, rumorID)
+		gossiper.RumorMonger(pkt, ackSenderIP)
+		
 	case status, open := <-*gossiper.AcksChannels[ackID]:
 		if open {
 			gossiper.AcksChannelsMux.Lock()
@@ -44,23 +57,26 @@ func (gossiper *Gossiper) WaitForAck(ackID string, ackSenderIP string, rumorID u
 	}
 }
 
+//Compare statuses and either send a rumor or a status packet
+//returns true if the statuses are not equal
 func (gossiper *Gossiper) CompareStatusStrict(status packets.PeerStatus, ackSenderIP string) bool {
 	gossiper.VectorClockMux.Lock()
 	defer gossiper.VectorClockMux.Unlock()
-	currentStatus := gossiper.VectorClock[status.Identifier]
-	if currentStatus.NextID > status.NextID {
+	currentStatus, found := gossiper.VectorClock[status.Identifier]
+	if found && currentStatus.NextID > status.NextID {
 		packet := gossiper.GetRumorPacket(status.Identifier, status.NextID)
 		if packet != nil {
 			gossiper.SendPacket(*packet, ackSenderIP)
 		}
 		return true
-	} else if currentStatus.NextID < status.NextID {
+	} else if found && currentStatus.NextID < status.NextID {
 		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, ackSenderIP)
 		return true
+	} else {
+		return false
 	}
-	return false
 }
-
+//Acknowledges a status packet
 func (gossiper *Gossiper) AckStatus(status packets.PeerStatus, ackSenderIP string, rumorID uint32) {
 	equal := !gossiper.CompareStatusStrict(status, ackSenderIP)
 	if equal {
@@ -68,7 +84,7 @@ func (gossiper *Gossiper) AckStatus(status packets.PeerStatus, ackSenderIP strin
 		if rand.Int()%2 == 0 {
 			packet := gossiper.GetRumorPacket(status.Identifier, rumorID)
 			if packet != nil {
-				target := gossiper.SendPacketRandomExcept(*packet, ackSenderIP)
+				target := gossiper.RumorMonger(packet, ackSenderIP)
 				if target != "" {
 					gossiper.LogFlip(target)
 

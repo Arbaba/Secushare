@@ -8,7 +8,7 @@
   <meta name="description" content="">
   <meta name="author" content="">
 
-  <title>Bare - Start Bootstrap Template</title>
+  <title>Peerster</title>
 
   <!-- Bootstrap core CSS -->
   <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -25,29 +25,13 @@
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarResponsive">
-        <ul class="navbar-nav ml-auto">
-          <li class="nav-item active">
-            <a class="nav-link" href="#">Home
-              <span class="sr-only">(current)</span>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">About</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">Services</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">Contact</a>
-          </li>
-        </ul>
-      </div>
+
     </div>
   </nav>
-
+  <br>
   <!-- Page Content -->
   <div class="container">
+
     <div class="row">
       <div class="col-lg-6" id="chatbox">
         <h2>Chatbox</h2>
@@ -61,17 +45,16 @@
           
       </div>
       <div class="col-lg-4" id="metadata">
-        <h3>Peer A</h3>
-
-        <h2>Peers</h2>
-        <div class="peersList list-group overflow-auto">
-          <a href="#" class="list-group-item list-group-item-action active">aaa
-        </a>
+        <h2>Peers</h2><br>
+        <h4 id="peerID"></h3>
+         <br> 
+        <div class="peersList list-group overflow-auto" id="peersList">
+       
         </div>
         <br>
         <div class="input-group mb-3">
         
-          <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" id="newPeer">
+          <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" id="newPeer" pattern="([0-9]{1,3}.){3}[0-9]{1,3}">
           <button type="button" class="btn btn-primary" id="addPeer" onclick="addPeer($('#newPeer').val())">Add Peer</button>
 
         </div>
@@ -87,6 +70,8 @@
   <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="https://d3js.org/d3.v5.min.js"></script>
   <script>
+      var peers = [];
+      var countMsg = 0
       function addPeer(address){
         console.log(address)
         $.get(`/peers/add/${address}`, function(d){})
@@ -95,35 +80,65 @@
       function sendMsg(msg){
         $.get(`/messages/send/${msg}`, function(d){})
 
-        console.log(msg)
       }
 
+      function setPeerID(id){
+        d3.select('#peerID').text(`ID: ${id}`)
+      }
       setInterval(function(){
-        console.log('a')
-        $.getJSON(`/messages/recentList`, function(d){
-          console.log('msgs',d)
-          if(d){
-            if(d['Messages']){
-              d['Messages'].forEach(msg => {
-                newmsg = d3.select('#messagesList')
-                  .append('li')
-                  .append('p')
-                  .text(`${msg.Origin}: ${msg.Text}`)
-                if(msg.Origin != d['PeerID']){
-                  newmsg.attr('class','message extMessage')
-                }else {
-                  newmsg.attr('class','message ownMessage')
+          $.getJSON(`/messages/recentList/${countMsg}`, function(d){
+            if(d){
+              if(d['Messages']){
 
-                }
-                                
-              });
-          
+                d['Messages'].forEach(msg => {
+                  newmsg = d3.select('#messagesList')
+                    
+                  if(msg.Origin != d['PeerID']){
+                    newmsg
+                    .append('li')
+                    .attr('class', 'd-flex flex-row  mb-3')
+                    .append('p')
+                    .text(`${msg.Origin}: ${msg.Text}`)
+                    .attr('class','message extMessage p-2 ')
+                  }else {
+                    newmsg
+                    .append('li')
+                    .attr('class', 'd-flex flex-row-reverse mb-3')
+                    .append('p')
+                    .text(`${msg.Origin}: ${msg.Text}`)
+                    .attr('class','message ownMessage p-2 ')
+
+                  }
+                                  
+                });
+
+                setPeerID(d['PeerID'])
+                countMsg += d['Messages'].length
+              }
+              
             }
-            
-          }
-      
-        })
-      }, 5000)
+        
+          })
+
+          $.getJSON('/peers/list', function(d){
+            if(d && d['Peers']){
+              d['Peers'].forEach(peer => {
+                if(!peers.includes(peer)){
+                  peers.push(peer)
+                  d3.select('#peersList')
+                    .append('p')
+                    .attr('class', 'list-group-item list-group-item-action active')
+                    .text(peer)
+                  
+                }
+
+              })
+
+              setPeerID(d['PeerID'])
+
+            }
+          })
+      }, 500)
       </script>  
 </body>
 
