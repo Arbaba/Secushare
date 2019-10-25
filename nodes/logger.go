@@ -1,9 +1,10 @@
 package nodes
 
 import (
-	"github.com/Arbaba/Peerster/packets"
 	"fmt"
 	"strings"
+
+	"github.com/Arbaba/Peerster/packets"
 )
 
 //Prints to standard output
@@ -23,9 +24,10 @@ func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address 
 }
 
 func (gossiper *Gossiper) LogRumor(rumor *packets.RumorMessage, peerAddr string) {
-	fmt.Printf("RUMOR origin %s from %s contents %s\n",
+	fmt.Printf("RUMOR origin %s from %s ID %d contents %s\n",
 		rumor.Origin,
 		peerAddr,
+		rumor.ID,
 		rumor.Text)
 }
 
@@ -48,7 +50,6 @@ func (gossiper *Gossiper) LogFlip(target string) {
 	fmt.Printf("FLIPPED COIN sending rumor to %s\n", target)
 }
 
-
-func (gossiper *Gossiper) LogClientMsg(msg string){
+func (gossiper *Gossiper) LogClientMsg(msg string) {
 	fmt.Printf("CLIENT MESSAGE %s\n", msg)
 }

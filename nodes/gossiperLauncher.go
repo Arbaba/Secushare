@@ -1,23 +1,27 @@
 package nodes
+
 /*
 This file serves to handle the high level behavior of the gossiper
 
 */
 import (
+	"net"
+
 	"github.com/Arbaba/Peerster/packets"
 
 	"fmt"
-	"net"
+	"math/rand"
+
 	"github.com/dedis/protobuf"
 )
 
-func (gossiper *Gossiper) LaunchGossiperCLI(){
+func (gossiper *Gossiper) LaunchGossiperCLI() {
 	go gossiper.AntiEntropyLoop()
 	go listenClient(gossiper)
 	listenGossip(gossiper)
 }
 
-func (gossiper *Gossiper) LaunchGossiperGUI(){
+func (gossiper *Gossiper) LaunchGossiperGUI() {
 	go gossiper.AntiEntropyLoop()
 	go listenClient(gossiper)
 	go listenGossip(gossiper)
@@ -63,7 +67,6 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		gossiper.StoreLastPacket(packet)
 		gossiper.SimpleBroadcast(packet, sourceAddress)
 		gossiper.LogClientMsg(packet.Simple.Contents)
-		gossiper.LogPeers()
 	} else {
 		//RumorMongering
 		packet := packets.GossipPacket{
@@ -76,11 +79,11 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		gossiper.StoreLastPacket(packet)
 
 		gossiper.StoreRumor(packet)
+
 		gossiper.RumorMonger(&packet, gossiper.RelayAddress())
 	}
 	gossiper.LogPeers()
 }
-
 
 //Gossiper behavior on reception of another node packet
 func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAddr) {
@@ -110,21 +113,32 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, peerAddr)
 		gossiper.RumorMonger(&packet, peerAddr)
 
-
 	} else if packet.StatusPacket != nil {
 		gossiper.LogStatusPacket(packet.StatusPacket, peerAddr)
 		gossiper.AddPeer(peerAddr)
 		gossiper.LogPeers()
 		for _, status := range packet.StatusPacket.Want {
 			//generate and identifier to retrieve to correct ACK channel
-			//A goroutine with an ackchannel is created for each rumor sent. 
+			//A goroutine with an ackchannel is created for each rumor sent.
 			//hence we pass the status via the correct channel (see rumormongering.go)
 			ackID := gossiper.AckID(status.Identifier, status.NextID, peerAddr)
 			ackChannel, waitingForIt := gossiper.AcksChannels[ackID]
 			if waitingForIt {
-				*ackChannel <- status
+				*ackChannel <- packet.StatusPacket
 			} else {
-				gossiper.CompareStatusStrict(status, peerAddr)
+				randomPeeridx := rand.Intn(len(gossiper.RumorsReceived))
+				counter := 0
+				for k, v := range gossiper.RumorsReceived {
+					if counter == randomPeeridx {
+						randomRumoridx := rand.Intn(len(v))
+						for idx, rumor := range gossiper.RumorsReceived[k] {
+							if idx == randomRumoridx {
+								gossiper.AckStatus(packet.StatusPacket, rumor.Origin, peerAddr, rumor.ID)
+							}
+						}
+					}
+				}
+
 			}
 		}
 
