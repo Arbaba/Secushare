@@ -80,7 +80,7 @@ func (gossiper *Gossiper) CompareStatusStrict(status packets.PeerStatus, ackSend
 	}
 }
 
-//Acknowledges a status packet
+//Acknowledges a status packet that we were waiting for
 func (gossiper *Gossiper) AckStatus(statuspkt *packets.StatusPacket, identifier string, ackSenderIP string, rumorID uint32) {
 	code, origin, id := gossiper.CompareStatus2(statuspkt)
 
@@ -107,22 +107,25 @@ func (gossiper *Gossiper) AckStatus(statuspkt *packets.StatusPacket, identifier 
 		}
 
 	}
-	/*
-		equal := !gossiper.CompareStatusStrict(status, ackSenderIP)
-		if equal {
-			gossiper.LogSync(ackSenderIP)
-			if rand.Int()%2 == 0 {
-				packet := gossiper.GetRumorPacket(status.Identifier, rumorID)
-				if packet != nil {
-					target := gossiper.RumorMonger(packet, ackSenderIP)
-					if target != "" {
-						gossiper.LogFlip(target)
-
-					}
-					}
-					}
-		}*/
 }
+
+func (gossiper *Gossiper) AckRandomStatusPkt(statuspkt *packets.StatusPacket,peerAddr string) {
+	randomPeeridx := rand.Intn(len(gossiper.RumorsReceived))
+	counter := 0
+	for k, v := range gossiper.RumorsReceived {
+		if counter == randomPeeridx {
+			randomRumoridx := rand.Intn(len(v))
+			for idx, rumor := range gossiper.RumorsReceived[k] {
+				if idx == randomRumoridx {
+					gossiper.AckStatus(statuspkt, rumor.Origin, peerAddr, rumor.ID)
+				}
+			}
+		}
+	}
+
+}
+
+
 
 func (gossiper *Gossiper) SendRumorRandom(origin string, id uint32, exceptAddress string) {
 	packet := gossiper.GetRumorPacket(origin, id)

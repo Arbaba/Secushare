@@ -5,12 +5,10 @@ This file serves to handle the high level behavior of the gossiper
 
 */
 import (
+	"fmt"
 	"net"
 
 	"github.com/Arbaba/Peerster/packets"
-
-	"fmt"
-	"math/rand"
 
 	"github.com/dedis/protobuf"
 )
@@ -126,19 +124,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			if waitingForIt {
 				*ackChannel <- packet.StatusPacket
 			} else {
-				randomPeeridx := rand.Intn(len(gossiper.RumorsReceived))
-				counter := 0
-				for k, v := range gossiper.RumorsReceived {
-					if counter == randomPeeridx {
-						randomRumoridx := rand.Intn(len(v))
-						for idx, rumor := range gossiper.RumorsReceived[k] {
-							if idx == randomRumoridx {
-								gossiper.AckStatus(packet.StatusPacket, rumor.Origin, peerAddr, rumor.ID)
-							}
-						}
-					}
-				}
-
+				gossiper.AckRandomStatusPkt(packet.StatusPacket, peerAddr)
 			}
 		}
 
