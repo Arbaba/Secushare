@@ -6,3 +6,7 @@ type RumorMessage struct {
 	ID     uint32
 	Text   string
 }
+
+func RumorPacket(origin string, id uint32, text string) GossipPacket{
+	return GossipPacket{Rumor: &RumorMessage{origin, id, text}}
+}

@@ -100,6 +100,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 	} else if rumor := packet.Rumor; packet.Rumor != nil {
 		gossiper.LogRumor(rumor, peerAddr)
 		gossiper.AddPeer(peerAddr)
+		gossiper.UpdateRouting(rumor.Origin, peerAddr)
+		gossiper.LogDSDV(rumor, peerAddr)
 		gossiper.LogPeers()
 
 		rumor := gossiper.GetRumor(rumor.Origin, rumor.ID)

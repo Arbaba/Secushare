@@ -53,3 +53,9 @@ func (gossiper *Gossiper) LogFlip(target string) {
 func (gossiper *Gossiper) LogClientMsg(msg string) {
 	fmt.Printf("CLIENT MESSAGE %s\n", msg)
 }
+
+func (gossiper *Gossiper) LogDSDV(rumor *packets.RumorMessage, address string) {
+	if rumor.Text != "" {
+		fmt.Printf("DSDV %s %s\n", rumor.Origin, address)
+	}
+}

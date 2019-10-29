@@ -23,27 +23,28 @@ type Gossiper struct {
 	SimpleMode      bool
 	StatusPacket    packets.StatusPacket
 	RumorsReceived  map[string][]*packets.RumorMessage     //All rumors received, indexed by origin and sorted by ID
-	PendingAcks     map[string][]packets.PeerStatus        //not used at the end
 	AcksChannels    map[string]*chan *packets.StatusPacket //Channels to communicate with the right ACK callback
 	VectorClock     map[string]*packets.PeerStatus         //Gossiper Status
 	AntiEntropy     int64
 	LastPackets     []packets.GossipPacket
 	GUIPort         string //Must be non nil to active the server
+	RoutingTable    map[string]string
+	Rtimer          int64
 	rumorsMux       sync.Mutex
-	pendingAcksMux  sync.Mutex
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
 	LastPacketsMux  sync.Mutex
+	RoutingTableMux sync.Mutex
 }
 
-func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string) *Gossiper {
+func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64) *Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
 
 	gossipAddr, gossipConn := UdpConnection(address)
 	clientAddr, clientConn := UdpConnection(fmt.Sprintf("%s:%s", ip, uiport))
 
-	return &Gossiper{
+	gossiper := &Gossiper{
 		GossipAddr:     gossipAddr,
 		GossipConn:     gossipConn,
 		ClientAddr:     clientAddr,
@@ -52,12 +53,16 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		Peers:          peers,
 		SimpleMode:     simpleMode,
 		RumorsReceived: make(map[string][]*packets.RumorMessage),
-		PendingAcks:    make(map[string][]packets.PeerStatus),
 		AcksChannels:   make(map[string]*chan *packets.StatusPacket),
 		VectorClock:    make(map[string]*packets.PeerStatus),
 		AntiEntropy:    antiEntropy,
 		GUIPort:        guiPort,
+		RoutingTable:   make(map[string]string),
+		Rtimer:         rtimer,
 	}
+
+	gossiper.SendRandomRoute()
+	return gossiper
 }
 
 func (gossiper *Gossiper) AddPeer(address string) {
