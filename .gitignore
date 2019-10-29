@@ -1,0 +1,6 @@
+*.out
+__debug_bin
+.vscode/
+Peerster
+client/client
+.metals

@@ -51,6 +51,7 @@ func listenClient(gossiper *Gossiper) {
 func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 	var msg packets.Message
 	protobuf.Decode(message[:rlen], &msg)
+	gossiper.LogClientMsg(msg)
 
 	if gossiper.SimpleMode {
 		packet := packets.GossipPacket{
@@ -64,7 +65,6 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		packet.Simple.OriginalName = gossiper.Name
 		gossiper.StoreLastPacket(packet)
 		gossiper.SimpleBroadcast(packet, sourceAddress)
-		gossiper.LogClientMsg(packet.Simple.Contents)
 	} else {
 		//RumorMongering
 		packet := packets.GossipPacket{
@@ -73,7 +73,6 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 				ID:     gossiper.GetNextRumorID(gossiper.Name),
 				Text:   msg.Text},
 		}
-		gossiper.LogClientMsg(msg.Text)
 		gossiper.StoreLastPacket(packet)
 
 		gossiper.StoreRumor(packet)

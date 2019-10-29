@@ -8,7 +8,7 @@ cd ..
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
-DEBUG="false"
+DEBUG="true"
 
 outputFiles=()
 message_c1_1=Weather_is_clear
@@ -100,27 +100,36 @@ do
 	msgLine3="RUMOR origin B from 127.0.0.1:[0-9]{4} ID 1 contents $message_c2_1"
 	msgLine4="RUMOR origin B from 127.0.0.1:[0-9]{4} ID 2 contents $message_c2_2"
 	msgLine5="RUMOR origin G from 127.0.0.1:[0-9]{4} ID 1 contents $message_c3"
-
+    echo "${outputFiles[$i]}"
 	if [[ "$gossipPort" != 5004 ]] ; then
 		if !(grep -Eq "$msgLine1" "${outputFiles[$i]}") ; then
+            echo "$msgLine1"
         	failed="T"
     	fi
 		if !(grep -Eq "$msgLine2" "${outputFiles[$i]}") ; then
+                    echo "$msgLine2"
+
         	failed="T"
     	fi
 	fi
 
 	if [[ "$gossipPort" != 5001 ]] ; then
 		if !(grep -Eq "$msgLine3" "${outputFiles[$i]}") ; then
+                    echo "$msgLine3"
+
         	failed="T"
     	fi
 		if !(grep -Eq "$msgLine4" "${outputFiles[$i]}") ; then
+                    echo "$msgLine4"
+
         	failed="T"
     	fi
 	fi
 	
 	if [[ "$gossipPort" != 5006 ]] ; then
 		if !(grep -Eq "$msgLine5" "${outputFiles[$i]}") ; then
+                    echo "$msgLine5"
+
         	failed="T"
     	fi
 	fi

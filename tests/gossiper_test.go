@@ -22,10 +22,12 @@ func initGossiper(){
 	rumors := make(map[string][]*packets.RumorMessage)
 	vectorClock := make(map[string]*packets.PeerStatus)
 }*/
+func getGossiper() *nodes.Gossiper {
+	return nodes.NewGossiper("127.0.0.1:5000", "A", "12345", nil, false, 10, "8080", 10)
+}
 func TestGetRumor(t *testing.T) {
-	rumors := make(map[string][]*packets.RumorMessage)
-
-	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+	gossiper := getGossiper()
+	//gossiper := nodes.Gossiper{RumorsReceived: rumors}
 	rumor := packets.RumorMessage{Origin: "A", ID: 10, Text: "hello"}
 	lowerRumor := packets.RumorMessage{Origin: "A", ID: 9, Text: "World"}
 
@@ -51,22 +53,20 @@ func TestHighestRumor(t *testing.T) {
 }*/
 
 func TestGetNextRumorIDEmpty(t *testing.T) {
-	rumors := make(map[string][]*packets.RumorMessage)
-	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+	gossiper := getGossiper()
+
 	assertEqual(t, gossiper.GetNextRumorID("A"), uint32(1))
 }
 
 func TestGetNextRumorIDAskTwo(t *testing.T) {
 	rumor := packets.RumorMessage{Origin: "A", ID: 1, Text: "hello"}
-	rumors := make(map[string][]*packets.RumorMessage)
-	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+	gossiper := getGossiper()
 	gossiper.StoreRumor(packets.GossipPacket{Rumor: &rumor})
 	assertEqual(t, gossiper.GetNextRumorID("A"), uint32(2))
 }
 
 func TestGetNextRumorID(t *testing.T) {
-	rumors := make(map[string][]*packets.RumorMessage)
-	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+	gossiper := getGossiper()
 
 	//Init rumors
 	for _, id := range []uint32{1, 2, 3, 5, 6, 7, 10} {
@@ -89,8 +89,7 @@ func TestGetNextRumorID(t *testing.T) {
 
 func TestRumorsOrdered(t *testing.T) {
 	origins := []string{"A", "A", "B"}
-	rumors := make(map[string][]*packets.RumorMessage)
-	gossiper := nodes.Gossiper{RumorsReceived: rumors}
+	gossiper := getGossiper()
 	var wg sync.WaitGroup
 	wg.Add(len(origins))
 

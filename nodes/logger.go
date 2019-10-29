@@ -2,8 +2,8 @@ package nodes
 
 import (
 	"fmt"
-	"strings"
 
+	"strings"
 	"github.com/Arbaba/Peerster/packets"
 )
 
@@ -50,8 +50,12 @@ func (gossiper *Gossiper) LogFlip(target string) {
 	fmt.Printf("FLIPPED COIN sending rumor to %s\n", target)
 }
 
-func (gossiper *Gossiper) LogClientMsg(msg string) {
-	fmt.Printf("CLIENT MESSAGE %s\n", msg)
+func (gossiper *Gossiper) LogClientMsg(msg packets.Message) {
+	if *msg.Destination != "" {
+		fmt.Printf("CLIENT MESSAGE %s dest %s\n", msg.Text, *msg.Destination)
+	} else {
+		fmt.Printf("CLIENT MESSAGE %s\n", msg.Text)
+	}
 }
 
 func (gossiper *Gossiper) LogDSDV(rumor *packets.RumorMessage, address string) {
