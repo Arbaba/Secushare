@@ -15,8 +15,10 @@ func main() {
 	dest := flag.String("dest", "", "destination for the private message")
 	flag.Parse()
 	target := fmt.Sprintf("127.0.0.1:%s", *uiport)
-	simpleMsg := packets.Message{Text: *msg, Destination: dest}
-
+	simpleMsg := packets.Message{Text: *msg}
+	if *dest != ""{
+		simpleMsg.Destination = dest
+	}
 	encodedPacket, err := protobuf.Encode(&simpleMsg)
 	if err != nil {
 		fmt.Println(err)

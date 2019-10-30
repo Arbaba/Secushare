@@ -24,7 +24,9 @@ func (gossiper *Gossiper) RumorMonger(rumorpkt *packets.GossipPacket, exceptIP s
 	if target != "" {
 		ackChannel := make(chan *packets.StatusPacket)
 		ackID := gossiper.AckID(rumor.Origin, rumor.ID+uint32(1), target)
+		//gossiper.AcksChannelsMux.Lock()
 		gossiper.AcksChannels[ackID] = &ackChannel
+		//gossiper.AcksChannelsMux.Unlock()
 		go gossiper.WaitForAck(ackID, target, rumor.ID)
 		gossiper.LogMongering(target)
 	}

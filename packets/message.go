@@ -9,9 +9,9 @@ type Message struct {
 }
 
 type PrivateMessage struct {
-	Origin string
-	ID uint32
-	Text string
+	Origin      string
+	ID          uint32
+	Text        string
 	Destination string
-	HopLimit uint32
+	HopLimit    uint32
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"strings"
+
 	"github.com/Arbaba/Peerster/packets"
 )
 
@@ -51,7 +52,7 @@ func (gossiper *Gossiper) LogFlip(target string) {
 }
 
 func (gossiper *Gossiper) LogClientMsg(msg packets.Message) {
-	if *msg.Destination != "" {
+	if msg.Destination != nil {
 		fmt.Printf("CLIENT MESSAGE %s dest %s\n", msg.Text, *msg.Destination)
 	} else {
 		fmt.Printf("CLIENT MESSAGE %s\n", msg.Text)
@@ -62,4 +63,8 @@ func (gossiper *Gossiper) LogDSDV(rumor *packets.RumorMessage, address string) {
 	if rumor.Text != "" {
 		fmt.Printf("DSDV %s %s\n", rumor.Origin, address)
 	}
+}
+
+func (gossiper *Gossiper) LogPrivateMsg(private *packets.PrivateMessage) {
+	fmt.Printf("PRIVATE origin %s hop-limit %s contents %s", private.Origin, gossiper.HOPLIMIT, private.Text)
 }

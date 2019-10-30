@@ -30,11 +30,15 @@ type Gossiper struct {
 	GUIPort         string //Must be non nil to active the server
 	RoutingTable    map[string]string
 	Rtimer          int64
+	PrivateMsgs     map[string][]*packets.PrivateMessage
+	HOPLIMIT		uint32
+
 	rumorsMux       sync.Mutex
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
 	LastPacketsMux  sync.Mutex
 	RoutingTableMux sync.Mutex
+	PrivateMsgsMux  sync.Mutex
 }
 
 func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64) *Gossiper {
@@ -59,9 +63,9 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		GUIPort:        guiPort,
 		RoutingTable:   make(map[string]string),
 		Rtimer:         rtimer,
+		PrivateMsgs:    make(map[string][]*packets.PrivateMessage),
+		HOPLIMIT:		uint32(10),
 	}
-
-	gossiper.SendRandomRoute()
 	return gossiper
 }
 
@@ -254,3 +258,4 @@ func (gossiper *Gossiper) GetStatus() []packets.PeerStatus {
 func (gossiper *Gossiper) GetStatusPacket() *packets.StatusPacket {
 	return &packets.StatusPacket{Want: gossiper.GetStatus()}
 }
+

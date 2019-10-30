@@ -16,6 +16,7 @@ type Payload struct {
 	Messages []packets.RumorMessage
 	Peers    []string
 	PeerID   string
+	Origins []string
 }
 
 func RunServer(gossiper *Gossiper) {
@@ -59,6 +60,16 @@ func RunServer(gossiper *Gossiper) {
 		w.WriteHeader(http.StatusOK)
 
 	})
+
+	r.HandleFunc("/routing/origins", func(w http.ResponseWriter, r *http.Request) {
+		//check input
+		w.Header().Set("Content-Type", "application/json")
+		
+		json.NewEncoder(w).Encode(Payload{PeerID: gossiper.Name, Origins: gossiper.GetAllOrigins()})
+
+		w.WriteHeader(http.StatusOK)
+
+	}
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./nodes/static/")))
 

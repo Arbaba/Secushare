@@ -14,15 +14,20 @@ import (
 )
 
 func (gossiper *Gossiper) LaunchGossiperCLI() {
-	go gossiper.AntiEntropyLoop()
 	go listenClient(gossiper)
-	listenGossip(gossiper)
+	go listenGossip(gossiper)
+	go gossiper.SendRandomRoute()
+	gossiper.AntiEntropyLoop()
 }
 
 func (gossiper *Gossiper) LaunchGossiperGUI() {
-	go gossiper.AntiEntropyLoop()
 	go listenClient(gossiper)
 	go listenGossip(gossiper)
+	go gossiper.AntiEntropyLoop()
+	if gossiper.Rtimer > 0 {
+		go gossiper.RouteRumorLoop()
+	}
+	go gossiper.SendRandomRoute()
 	RunServer(gossiper)
 
 }
@@ -46,6 +51,19 @@ func listenClient(gossiper *Gossiper) {
 
 	}
 }
+func listenGossip(gossiper *Gossiper) {
+	conn := gossiper.GossipConn
+	defer conn.Close()
+	for {
+		message := make([]byte, 1000)
+		rlen, raddr, err := conn.ReadFromUDP(message[:])
+		if err != nil {
+			panic(err)
+		}
+		go handleGossip(gossiper, message, rlen, raddr)
+
+	}
+}
 
 //Gossiper behavior on reception on a client message
 func handleClient(gossiper *Gossiper, message []byte, rlen int) {
@@ -66,18 +84,30 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		gossiper.StoreLastPacket(packet)
 		gossiper.SimpleBroadcast(packet, sourceAddress)
 	} else {
-		//RumorMongering
-		packet := packets.GossipPacket{
-			Rumor: &packets.RumorMessage{
-				Origin: gossiper.Name,
-				ID:     gossiper.GetNextRumorID(gossiper.Name),
-				Text:   msg.Text},
+		if msg.Destination != nil {
+			privatemsg := &packets.PrivateMessage{
+				Origin:      gossiper.Name,
+				ID:          0,
+				Text:        msg.Text,
+				Destination: *msg.Destination,
+				HopLimit:    gossiper.HOPLIMIT,
+			}
+			gossiper.SendPrivateMsg(privatemsg)
+		} else {
+			//RumorMongering
+			packet := packets.GossipPacket{
+				Rumor: &packets.RumorMessage{
+					Origin: gossiper.Name,
+					ID:     gossiper.GetNextRumorID(gossiper.Name),
+					Text:   msg.Text},
+			}
+			gossiper.StoreLastPacket(packet)
+
+			gossiper.StoreRumor(packet)
+
+			gossiper.RumorMonger(&packet, gossiper.RelayAddress())
 		}
-		gossiper.StoreLastPacket(packet)
 
-		gossiper.StoreRumor(packet)
-
-		gossiper.RumorMonger(&packet, gossiper.RelayAddress())
 	}
 	gossiper.LogPeers()
 }
@@ -129,20 +159,13 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			}
 		}
 
-	}
-
-}
-
-func listenGossip(gossiper *Gossiper) {
-	conn := gossiper.GossipConn
-	defer conn.Close()
-	for {
-		message := make([]byte, 1000)
-		rlen, raddr, err := conn.ReadFromUDP(message[:])
-		if err != nil {
-			panic(err)
+	} else if private := packet.Private; packet.Private != nil {
+		if private.Destination == gossiper.Name {
+			gossiper.StorePrivateMsg(private)
+		} else if private.HopLimit > 0 {
+			private.HopLimit -= 1
+			gossiper.SendPrivateMsg(private)
 		}
-		go handleGossip(gossiper, message, rlen, raddr)
-
 	}
+	
 }
