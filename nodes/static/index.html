@@ -35,8 +35,17 @@
     <div class="row">
       <div class="col-lg-6" id="chatbox">
         <h2>Chatbox</h2>
-        <ul class="messagesList overflow-auto" id="messagesList">     
-        </ul>
+        <br>
+        <select id="selectOrigin" class="form-control" onchange="selectChatBox($(this).val())">
+          <option value="Global">Global</option>
+
+        </select>
+        <br>
+
+        <div id="channels">
+            <ul class="global messagesList overflow-auto"  id="Global">     
+            </ul>
+        </div>
           <div class="input-group">
             <textarea class="form-control" aria-label="With textarea" placeholder="Please type your message..." id="newMsg"></textarea>
             <button type="button" class="btn btn-primary" id="sendmsg" onclick="sendMsg($('#newMsg').val())">Send</button>
@@ -71,6 +80,7 @@
   <script src="https://d3js.org/d3.v5.min.js"></script>
   <script>
       var peers = [];
+      var origins = ['Global']
       var countMsg = 0
       function addPeer(address){
         console.log(address)
@@ -79,6 +89,15 @@
       
       function sendMsg(msg){
         $.get(`/messages/send/${msg}`, function(d){})
+
+      }
+
+      function selectChatBox(id){
+        origins.forEach(origin => {
+          d3.select(`#${origin}`).style('display', 'none')
+        })
+        console.log(id)
+        d3.select(`#${id}`).style('display', 'inline')
 
       }
 
@@ -91,7 +110,8 @@
               if(d['Messages']){
 
                 d['Messages'].forEach(msg => {
-                  newmsg = d3.select('#messagesList')
+                  selectChatBox('Global')
+                  newmsg = d3.select('#Global')
                     
                   if(msg.Origin != d['PeerID']){
                     newmsg
@@ -130,12 +150,28 @@
                     .attr('class', 'list-group-item list-group-item-action active')
                     .text(peer)
                   
+                  
                 }
 
               })
 
               setPeerID(d['PeerID'])
 
+            }
+          })
+
+          $.getJSON('/routing/origins', function(d){
+            if (d && d['Origins']){
+              d['Origins'].forEach(origin => {
+                if(!origins.includes(origin)){
+                  origins.push(origin)
+                  d3.select('#selectOrigin').append('option').property('value', origin).text(origin)
+                  d3.select('channels')
+                    .append('ul')
+                    .attr('class', 'global messagesList overflow-auto')
+                    .attr('id', origin)
+                } 
+              })
             }
           })
       }, 500)

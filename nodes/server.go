@@ -64,14 +64,13 @@ func RunServer(gossiper *Gossiper) {
 	r.HandleFunc("/routing/origins", func(w http.ResponseWriter, r *http.Request) {
 		//check input
 		w.Header().Set("Content-Type", "application/json")
-		
-		json.NewEncoder(w).Encode(Payload{PeerID: gossiper.Name, Origins: gossiper.GetAllOrigins()})
+		payload := Payload{PeerID: gossiper.Name, Origins: gossiper.GetAllOrigins()}
+		json.NewEncoder(w).Encode(payload)
 
-		w.WriteHeader(http.StatusOK)
 
 	})
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./nodes/static/")))
 
-	http.ListenAndServe(":8080", r)
+	http.ListenAndServe(":" + gossiper.GUIPort, r)
 }

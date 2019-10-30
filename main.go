@@ -28,7 +28,7 @@ func parseCmd() (*string, *string, *string, []string, *bool, *int64, *string, *i
 	simpleMode := flag.Bool("simple", false, "run gossiper in simple broadcast mode")
 	antiEntropy := flag.Int64("antiEntropy", 10, "Use the given timeout in seconds for anti-entropy (relevant only for Part 2. If the flag is absent, the default anti-entropy duration is 10 seconds")
 	guiPort := flag.String("GUIPort", "", "Port for the graphical interface")
-	rtimer := flag.Int64("rtimer int", 0, "Timeout ub secibds for anti-entropy. If the flag is absent, the default anti-entropy duration is 10 seconds.")
+	rtimer := flag.Int64("rtimer", 0, "Timeout ub secibds for anti-entropy. If the flag is absent, the default anti-entropy duration is 10 seconds.")
 	flag.Parse()
 	peersList := []string{}
 	if *peers != "" {
