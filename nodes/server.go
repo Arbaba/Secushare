@@ -69,7 +69,7 @@ func RunServer(gossiper *Gossiper) {
 
 		w.WriteHeader(http.StatusOK)
 
-	}
+	})
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./nodes/static/")))
 
