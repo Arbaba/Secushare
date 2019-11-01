@@ -33,7 +33,7 @@
   <div class="container">
 
     <div class="row">
-      <div class="col-lg-6" id="chatbox">
+      <div class="col-lg-5" id="chatbox">
         <h2>Chatbox</h2>
         <br>
         <select id="selectOrigin" class="form-control" onchange="selectChatBox($(this).val())">
@@ -53,7 +53,7 @@
           </div>
           
       </div>
-      <div class="col-lg-4" id="metadata">
+      <div class="col-lg-3" id="metadata">
         <h2>Peers</h2><br>
         <h4 id="peerID"></h3>
          <br> 
@@ -61,8 +61,7 @@
        
         </div>
         <br>
-        <div class="input-group mb-3">
-        
+        <div class="input-group mb-4">
           <input type="text" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default" id="newPeer" pattern="([0-9]{1,3}.){3}[0-9]{1,3}">
           <button type="button" class="btn btn-primary" id="addPeer" onclick="addPeer($('#newPeer').val())">Add Peer</button>
 
@@ -71,6 +70,18 @@
 
         
       </div>
+      <div class="col-lg-4">
+        <h2>Files</h2>
+
+        <form>
+          <div class="form-group">
+            <label for="exampleFormControlFile1">Example file input</label>
+            <input type="file" class="form-control-file" id="exampleFormControlFile1">
+            <button type="submit" class="btn btn-primary mb-2">Share file</button>
+          </div>
+
+        </form>
+        </div>
     </div>
   </div>
 

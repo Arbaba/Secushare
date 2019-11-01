@@ -16,8 +16,8 @@ import (
 func (gossiper *Gossiper) LaunchGossiperCLI() {
 	go listenClient(gossiper)
 	go listenGossip(gossiper)
-	go gossiper.SendRandomRoute()
 	if gossiper.Rtimer > 0 {
+		go gossiper.SendRandomRoute()
 		go gossiper.RouteRumorLoop()
 	}
 	gossiper.AntiEntropyLoop()
@@ -28,9 +28,9 @@ func (gossiper *Gossiper) LaunchGossiperGUI() {
 	go listenGossip(gossiper)
 	go gossiper.AntiEntropyLoop()
 	if gossiper.Rtimer > 0 {
+		go gossiper.SendRandomRoute()
 		go gossiper.RouteRumorLoop()
 	}
-	go gossiper.SendRandomRoute()
 	RunServer(gossiper)
 
 }
@@ -135,6 +135,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		
 		gossiper.LogRumor(rumor, peerAddr)
 		gossiper.AddPeer(peerAddr)
+		gossiper.LogPeers()
 		gossiper.UpdateRouting(rumor.Origin, peerAddr)
 		gossiper.LogDSDVRumor(rumor, peerAddr)
 
@@ -160,7 +161,9 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			//A goroutine with an ackchannel is created for each rumor sent.
 			//hence we pass the status via the correct channel (see rumormongering.go)
 			ackID := gossiper.AckID(status.Identifier, status.NextID, peerAddr)
+			gossiper.AcksChannelsMux.Lock()
 			ackChannel, waitingForIt := gossiper.AcksChannels[ackID]
+			gossiper.AcksChannelsMux.Unlock()
 			if waitingForIt {
 				*ackChannel <- packet.StatusPacket
 			} else {

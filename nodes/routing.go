@@ -23,12 +23,12 @@ func (gossiper *Gossiper) SendRandomRoute() {
 	route := gossiper.GetRouteRumor()
 	if route != nil {
 		pkt := &packets.GossipPacket{Rumor: route}
-		gossiper.RumorMonger(pkt, gossiper.RelayAddress())
+		//gossiper.RumorMonger(pkt, gossiper.RelayAddress())
 		gossiper.StoreLastPacket(*pkt)
 
 		gossiper.StoreRumor(*pkt)
 
-		gossiper.RumorMonger(pkt, gossiper.RelayAddress())
+		//gossiper.RumorMonger(pkt, gossiper.RelayAddress())
 	}
 }
 
