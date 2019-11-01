@@ -111,7 +111,7 @@ func (gossiper *Gossiper) AckStatus(statuspkt *packets.StatusPacket, identifier 
 	}
 }
 
-func (gossiper *Gossiper) AckRandomStatusPkt(statuspkt *packets.StatusPacket,peerAddr string) {
+func (gossiper *Gossiper) AckRandomStatusPkt(statuspkt *packets.StatusPacket, peerAddr string) {
 	randomPeeridx := rand.Intn(len(gossiper.RumorsReceived))
 	counter := 0
 	for k, v := range gossiper.RumorsReceived {

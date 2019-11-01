@@ -59,12 +59,17 @@ func (gossiper *Gossiper) LogClientMsg(msg packets.Message) {
 	}
 }
 
-func (gossiper *Gossiper) LogDSDV(rumor *packets.RumorMessage, address string) {
+func (gossiper *Gossiper) LogDSDVRumor(rumor *packets.RumorMessage, address string) {
 	if rumor.Text != "" {
 		fmt.Printf("DSDV %s %s\n", rumor.Origin, address)
 	}
 }
 
+func (gossiper *Gossiper) LogDSDVPrivate(private *packets.PrivateMessage, address string) {
+	if private.Text != "" {
+		fmt.Printf("DSDV %s %s\n", private.Origin, address)
+	}
+}
 func (gossiper *Gossiper) LogPrivateMsg(private *packets.PrivateMessage) {
-	fmt.Printf("PRIVATE origin %s hop-limit %s contents %s", private.Origin, gossiper.HOPLIMIT, private.Text)
+	fmt.Printf("PRIVATE origin %s hop-limit %d contents %s\n", private.Origin, gossiper.HOPLIMIT, private.Text)
 }

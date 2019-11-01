@@ -43,7 +43,7 @@
         <br>
 
         <div id="channels">
-            <ul class="global messagesList overflow-auto"  id="Global">     
+            <ul class="messagesList overflow-auto"  id="Global">     
             </ul>
         </div>
           <div class="input-group">
@@ -81,14 +81,21 @@
   <script>
       var peers = [];
       var origins = ['Global']
+      var privateMessagesCount = {}
       var countMsg = 0
+      var currentChannel ='Global'
       function addPeer(address){
         console.log(address)
         $.get(`/peers/add/${address}`, function(d){})
       }
       
       function sendMsg(msg){
-        $.get(`/messages/send/${msg}`, function(d){})
+        if(currentChannel != 'Global'){
+          $.get(`/messages/private/send/${currentChannel}/${msg}`, function(d){})
+
+        }else {
+          $.get(`/messages/send/${msg}`, function(d){})
+        }
 
       }
 
@@ -97,8 +104,8 @@
           d3.select(`#${origin}`).style('display', 'none')
         })
         console.log(id)
-        d3.select(`#${id}`).style('display', 'inline')
-
+        d3.select(`#${id}`).style('display', 'inherit')
+        currentChannel = id
       }
 
       function setPeerID(id){
@@ -108,14 +115,14 @@
           $.getJSON(`/messages/recentList/${countMsg}`, function(d){
             if(d){
               if(d['Messages']){
-
-                d['Messages'].forEach(msg => {
-                  selectChatBox('Global')
+                filtered = d['Messages'].filter(m =>  m.Text != "")
+                filtered.forEach(msg => {
                   newmsg = d3.select('#Global')
                     
                   if(msg.Origin != d['PeerID']){
                     newmsg
                     .append('li')
+                    .style('display', 'none')
                     .attr('class', 'd-flex flex-row  mb-3')
                     .append('p')
                     .text(`${msg.Origin}: ${msg.Text}`)
@@ -123,6 +130,7 @@
                   }else {
                     newmsg
                     .append('li')
+                    .style('display', 'none')
                     .attr('class', 'd-flex flex-row-reverse mb-3')
                     .append('p')
                     .text(`${msg.Origin}: ${msg.Text}`)
@@ -139,6 +147,56 @@
             }
         
           })
+
+          $.getJSON('/messages/private/list', function(d){
+            if(d){
+              if(d['PrivateMessages']){
+                origins.forEach(origin => {
+                  if(origin in d['PrivateMessages']){
+                    if(!(origin in privateMessagesCount)){
+                      privateMessagesCount[origin] = 0
+                      d3.select('#channels')
+                      .append('ul').attr('class', 'messagesList overflow-auto')
+                      .attr('id', origin)
+                    }
+                    sublist =  d['PrivateMessages'][origin].slice( privateMessagesCount[origin])
+                    privateMessagesCount[origin] += sublist.length
+                    sublist.forEach(msg => {
+                      newmsg = d3.select(`#${origin}`)
+                      if(currentChannel != origin){
+                        newmsg.style('display', 'none')
+                      }
+                              if(msg.Origin != d['PeerID']){
+                                newmsg
+                                .append('li')
+                                .attr('class', 'd-flex flex-row  mb-3')
+                                .append('p')
+                                .text(`${msg.Origin}: ${msg.Text}`)
+                                .attr('class','message extMessage p-2 ')
+                              }else {
+                                newmsg
+                                .append('li')
+                                .attr('class', 'd-flex flex-row-reverse mb-3')
+                                .append('p')
+                                .text(`${msg.Origin}: ${msg.Text}`)
+                                .attr('class','message ownMessage p-2 ')
+                              }
+
+                    })
+                    
+
+                    console.log(sublist)
+                  }
+                  
+                })
+              }
+            }
+                setPeerID(d['PeerID'])
+          })
+              
+            
+        
+          
 
           $.getJSON('/peers/list', function(d){
             if(d && d['Peers']){

@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"math/rand"
 	"time"
 
 	"github.com/Arbaba/Peerster/packets"
@@ -10,37 +9,26 @@ import (
 func (gossiper *Gossiper) UpdateRouting(origin, address string) {
 	gossiper.RoutingTableMux.Lock()
 	defer gossiper.RoutingTableMux.Unlock()
-	gossiper.RoutingTable[origin] = address
+	if origin != gossiper.Name {
+		gossiper.RoutingTable[origin] = address
+	}
 }
 
-func (gossiper *Gossiper) GetRandomRoute() (*packets.RumorMessage, string) {
-	gossiper.RoutingTableMux.Lock()
-	defer gossiper.RoutingTableMux.Unlock()
-	s1 := rand.NewSource(time.Now().UnixNano())
-	r1 := rand.New(s1)
-	size := len(gossiper.RoutingTable)
-	if size > 0 {
-		i := r1.Intn(size)
-		var origin, ip string
-		for origin_, ip_ := range gossiper.RoutingTable {
-			if i == 0 {
-				origin = origin_
-				ip = ip_
-			}
-			i -= 1
-		}
-		if len(origin) > 0 {
-			rumor := &packets.RumorMessage{Origin: origin, ID: gossiper.GetNextRumorID(origin), Text: ""}
-			return rumor, ip
-		}
-	}
-	return nil, ""
+func (gossiper *Gossiper) GetRouteRumor() *packets.RumorMessage {
+	return &packets.RumorMessage{Origin: gossiper.Name, ID: gossiper.GetNextRumorID(gossiper.Name), Text: ""}
+
 }
 
 func (gossiper *Gossiper) SendRandomRoute() {
-	route, exceptip := gossiper.GetRandomRoute()
+	route := gossiper.GetRouteRumor()
 	if route != nil {
-		gossiper.RumorMonger(&packets.GossipPacket{Rumor: route}, exceptip)
+		pkt := &packets.GossipPacket{Rumor: route}
+		gossiper.RumorMonger(pkt, gossiper.RelayAddress())
+		gossiper.StoreLastPacket(*pkt)
+
+		gossiper.StoreRumor(*pkt)
+
+		gossiper.RumorMonger(pkt, gossiper.RelayAddress())
 	}
 }
 
@@ -85,7 +73,21 @@ func (gossiper *Gossiper) SendPrivateMsg(privatemsg *packets.PrivateMessage) {
 func (gossiper *Gossiper) StorePrivateMsg(privatemsg *packets.PrivateMessage) {
 	gossiper.PrivateMsgsMux.Lock()
 	defer gossiper.PrivateMsgsMux.Unlock()
-	gossiper.PrivateMsgs[privatemsg.Origin] = append(gossiper.PrivateMsgs[privatemsg.Origin], privatemsg)
+	if privatemsg.Origin == gossiper.Name {
+		gossiper.PrivateMsgs[privatemsg.Destination] = append(gossiper.PrivateMsgs[privatemsg.Destination], privatemsg)
+	} else {
+		gossiper.PrivateMsgs[privatemsg.Origin] = append(gossiper.PrivateMsgs[privatemsg.Origin], privatemsg)
+	}
 }
 
-
+func (gossiper *Gossiper) GetPrivateMsgs() map[string][]packets.PrivateMessage {
+	gossiper.PrivateMsgsMux.Lock()
+	defer gossiper.PrivateMsgsMux.Unlock()
+	newMsgs := make(map[string][]packets.PrivateMessage)
+	for origin, msgs := range gossiper.PrivateMsgs {
+		for _, msg := range msgs {
+			newMsgs[origin] = append(newMsgs[origin], *msg)
+		}
+	}
+	return newMsgs
+}

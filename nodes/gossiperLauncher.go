@@ -17,6 +17,9 @@ func (gossiper *Gossiper) LaunchGossiperCLI() {
 	go listenClient(gossiper)
 	go listenGossip(gossiper)
 	go gossiper.SendRandomRoute()
+	if gossiper.Rtimer > 0 {
+		go gossiper.RouteRumorLoop()
+	}
 	gossiper.AntiEntropyLoop()
 }
 
@@ -93,6 +96,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 				HopLimit:    gossiper.HOPLIMIT,
 			}
 			gossiper.SendPrivateMsg(privatemsg)
+			gossiper.StorePrivateMsg(privatemsg)
 		} else {
 			//RumorMongering
 			packet := packets.GossipPacket{
@@ -117,7 +121,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 	var packet packets.GossipPacket
 	protobuf.Decode(message[:rlen], &packet)
 	peerAddr := fmt.Sprintf("%s:%d", raddr.IP, raddr.Port)
-	gossiper.StoreLastPacket(packet)
 	if packet.Simple != nil {
 		gossiper.AddPeer(packet.Simple.RelayPeerAddr)
 		gossiper.LogPeers()
@@ -126,21 +129,27 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		sourceAddress := packet.Simple.RelayPeerAddr
 		packet.Simple.RelayPeerAddr = gossiper.RelayAddress()
 		gossiper.SimpleBroadcast(packet, sourceAddress)
-	} else if rumor := packet.Rumor; packet.Rumor != nil {
+		gossiper.StoreLastPacket(packet)
+
+	} else if rumor := packet.Rumor; packet.Rumor != nil{
+		
 		gossiper.LogRumor(rumor, peerAddr)
 		gossiper.AddPeer(peerAddr)
 		gossiper.UpdateRouting(rumor.Origin, peerAddr)
-		gossiper.LogDSDV(rumor, peerAddr)
-		gossiper.LogPeers()
+		gossiper.LogDSDVRumor(rumor, peerAddr)
 
 		rumor := gossiper.GetRumor(rumor.Origin, rumor.ID)
 		if rumor != nil {
 			//Rumor was already received, hence we discard the packet
+			fmt.Printf("Already received rumor from %s with ID %d and content %s", rumor.Origin, rumor.ID, rumor.Text)
 			return
 		}
+		gossiper.StoreLastPacket(packet)
+
 		gossiper.StoreRumor(packet)
 		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, peerAddr)
 		gossiper.RumorMonger(&packet, peerAddr)
+		
 
 	} else if packet.StatusPacket != nil {
 		gossiper.LogStatusPacket(packet.StatusPacket, peerAddr)
@@ -160,12 +169,17 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 
 	} else if private := packet.Private; packet.Private != nil {
+		gossiper.UpdateRouting(private.Origin, peerAddr)
+		gossiper.LogDSDVPrivate(private, peerAddr)
+
 		if private.Destination == gossiper.Name {
 			gossiper.StorePrivateMsg(private)
+			gossiper.LogPrivateMsg(private)
 		} else if private.HopLimit > 0 {
 			private.HopLimit -= 1
 			gossiper.SendPrivateMsg(private)
 		}
 	}
-	
 }
+
+	

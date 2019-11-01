@@ -13,10 +13,16 @@ import (
 )
 
 type Payload struct {
-	Messages []packets.RumorMessage
-	Peers    []string
-	PeerID   string
-	Origins []string
+	Messages        []packets.RumorMessage
+	Peers           []string
+	PeerID          string
+	Origins         []string
+	PrivateMessages map[string][]packets.PrivateMessage
+}
+
+type PrivateMessageRequest struct {
+	PrivateMessages map[string]int
+	PeerID          string
 }
 
 func RunServer(gossiper *Gossiper) {
@@ -32,11 +38,32 @@ func RunServer(gossiper *Gossiper) {
 		}
 	})
 
+	r.HandleFunc("/messages/private/list", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		msgs := gossiper.GetPrivateMsgs()
+		json.NewEncoder(w).Encode(Payload{PrivateMessages: msgs, PeerID: gossiper.Name})
+	})
+
 	r.HandleFunc("/messages/send/{msg}", func(w http.ResponseWriter, r *http.Request) {
 
 		vars := mux.Vars(r)
 		msg := vars["msg"]
 		simpleMsg := packets.Message{Text: msg}
+		encodedPacket, err := protobuf.Encode(&simpleMsg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		handleClient(gossiper, encodedPacket, len(encodedPacket))
+
+	})
+
+	r.HandleFunc("/messages/private/send/{dest}/{msg}", func(w http.ResponseWriter, r *http.Request) {
+
+		vars := mux.Vars(r)
+		msg := vars["msg"]
+		dest := vars["dest"]
+
+		simpleMsg := packets.Message{Text: msg, Destination: &dest}
 		encodedPacket, err := protobuf.Encode(&simpleMsg)
 		if err != nil {
 			fmt.Println(err)
@@ -67,10 +94,18 @@ func RunServer(gossiper *Gossiper) {
 		payload := Payload{PeerID: gossiper.Name, Origins: gossiper.GetAllOrigins()}
 		json.NewEncoder(w).Encode(payload)
 
+	})
+
+
+	r.HandleFunc("/routing/origins", func(w http.ResponseWriter, r *http.Request) {
+		//check input
+		w.Header().Set("Content-Type", "application/json")
+		payload := Payload{PeerID: gossiper.Name, Origins: gossiper.GetAllOrigins()}
+		json.NewEncoder(w).Encode(payload)
 
 	})
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./nodes/static/")))
 
-	http.ListenAndServe(":" + gossiper.GUIPort, r)
+	http.ListenAndServe(":"+gossiper.GUIPort, r)
 }

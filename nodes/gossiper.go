@@ -193,10 +193,14 @@ func (gossiper *Gossiper) UpdateVectorClock(rumor *packets.RumorMessage) {
 	gossiper.VectorClockMux.Lock()
 	defer gossiper.VectorClockMux.Unlock()
 	status, found := gossiper.VectorClock[rumor.Origin]
-	if found && rumor.ID >= status.NextID {
+	if found && rumor.ID == status.NextID {
 		status.NextID = rumor.ID + 1
 	} else if !found {
-		status = &packets.PeerStatus{Identifier: rumor.Origin, NextID: rumor.ID + 1}
+		nextID := uint32(1)
+		if rumor.ID == nextID {
+			nextID += 1
+		}
+		status = &packets.PeerStatus{Identifier: rumor.Origin, NextID: nextID}
 		gossiper.VectorClock[rumor.Origin] = status
 	}
 }
