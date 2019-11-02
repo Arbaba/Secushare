@@ -105,6 +105,23 @@ func RunServer(gossiper *Gossiper) {
 
 	})
 
+	r.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)	
+
+		file, handler, err := r.FormFile("newFile")
+		if err != nil {
+			fmt.Println("Error Retrieving the File")
+
+			fmt.Println(err)
+			return
+		}
+		defer file.Close()
+		msg := packets.Message{File: &handler.Filename}
+		encodedPacket, err := protobuf.Encode(&msg)
+		handleClient(gossiper, encodedPacket, len(encodedPacket))
+
+	})
+
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./nodes/static/")))
 
 	http.ListenAndServe(":"+gossiper.GUIPort, r)

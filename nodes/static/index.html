@@ -73,11 +73,11 @@
       <div class="col-lg-4">
         <h2>Files</h2>
 
-        <form>
+        <form action="/upload" method="POST" name="fileform" enctype="multipart/form-data">
           <div class="form-group">
             <label for="exampleFormControlFile1">Example file input</label>
-            <input type="file" class="form-control-file" id="exampleFormControlFile1">
-            <button type="submit" class="btn btn-primary mb-2">Share file</button>
+            <input type="file" name="newFile" class="form-control-file" id="exampleFormControlFile1">
+            <button type="submit"   class="btn btn-primary mb-2">Share file</button>
           </div>
 
         </form>
@@ -122,6 +122,8 @@
       function setPeerID(id){
         d3.select('#peerID').text(`ID: ${id}`)
       }
+
+     
       setInterval(function(){
           $.getJSON(`/messages/recentList/${countMsg}`, function(d){
             if(d){

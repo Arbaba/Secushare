@@ -97,7 +97,9 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			}
 			gossiper.SendPrivateMsg(privatemsg)
 			gossiper.StorePrivateMsg(privatemsg)
-		} else {
+		} else if msg.File != nil{
+			gossiper.ScanFile(*msg.File)
+		}else {
 			//RumorMongering
 			packet := packets.GossipPacket{
 				Rumor: &packets.RumorMessage{
