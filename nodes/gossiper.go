@@ -32,14 +32,19 @@ type Gossiper struct {
 	Rtimer          int64
 	PrivateMsgs     map[string][]*packets.PrivateMessage
 	HOPLIMIT		uint32
-	Files 			map[string]FileMetadata //files indexed by Metahash string
+	FilesInfo 			map[string]*FileMetaData //files indexed by Metahash string
+
+	DataBuffer		map[string]*chan packets.DataReply
+	Files			map[string][]byte
 	rumorsMux       sync.Mutex
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
 	LastPacketsMux  sync.Mutex
 	RoutingTableMux sync.Mutex
 	PrivateMsgsMux  sync.Mutex
+	FilesInfoMux	sync.Mutex
 	FilesMux		sync.Mutex
+	DataBufferMux 	sync.Mutex
 }
 
 func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64) *Gossiper {
@@ -66,8 +71,9 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		Rtimer:         rtimer,
 		PrivateMsgs:    make(map[string][]*packets.PrivateMessage),
 		HOPLIMIT:		uint32(10),
-		Files: 			make(map[string]FileMetadata),
-
+		FilesInfo: 			make(map[string]*FileMetaData),
+		DataBuffer: 	make(map[string]*chan packets.DataReply),
+		Files: 			make(map[string][]byte),
 
 	}
 	return gossiper
@@ -199,7 +205,16 @@ func (gossiper *Gossiper) UpdateVectorClock(rumor *packets.RumorMessage) {
 	status, found := gossiper.VectorClock[rumor.Origin]
 	if found && rumor.ID == status.NextID {
 		status.NextID = rumor.ID + 1
+		for {
+			nextrumor := gossiper.GetRumor(rumor.Origin, status.NextID)
+			if nextrumor != nil {
+				status.NextID += 1
+			} else {
+				return
+			}
+		}
 	} else if !found {
+
 		nextID := uint32(1)
 		if rumor.ID == nextID {
 			nextID += 1

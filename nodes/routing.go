@@ -28,7 +28,7 @@ func (gossiper *Gossiper) SendRandomRoute() {
 
 		gossiper.StoreRumor(*pkt)
 
-		//gossiper.RumorMonger(pkt, gossiper.RelayAddress())
+		gossiper.RumorMonger(pkt, gossiper.RelayAddress())
 	}
 }
 
@@ -66,6 +66,15 @@ func (gossiper *Gossiper) SendPrivateMsg(privatemsg *packets.PrivateMessage) {
 	ip, found := gossiper.RoutingTable[privatemsg.Destination]
 	if found {
 		pkt := packets.GossipPacket{Private: privatemsg}
+		gossiper.SendPacket(pkt, ip)
+	}
+}
+
+func (gossiper *Gossiper) SendDirect(pkt packets.GossipPacket, destination string) {
+	gossiper.RoutingTableMux.Lock()
+	defer gossiper.RoutingTableMux.Unlock()
+	ip, found := gossiper.RoutingTable[destination]
+	if found {
 		gossiper.SendPacket(pkt, ip)
 	}
 }

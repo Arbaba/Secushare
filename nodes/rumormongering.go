@@ -117,6 +117,7 @@ func (gossiper *Gossiper) AckStatus(statuspkt *packets.StatusPacket, identifier 
 }
 
 func (gossiper *Gossiper) AckRandomStatusPkt(statuspkt *packets.StatusPacket, peerAddr string) {
+	if len(gossiper.RumorsReceived) == 0{return}
 	randomPeeridx := rand.Intn(len(gossiper.RumorsReceived))
 	counter := 0
 	for k, v := range gossiper.RumorsReceived {

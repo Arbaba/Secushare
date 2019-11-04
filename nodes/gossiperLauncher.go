@@ -9,7 +9,6 @@ import (
 	"net"
 
 	"github.com/Arbaba/Peerster/packets"
-
 	"github.com/dedis/protobuf"
 )
 
@@ -45,12 +44,12 @@ func listenClient(gossiper *Gossiper) {
 	conn := gossiper.ClientConn
 	defer conn.Close()
 	for {
-		message := make([]byte, 1000)
+		message := make([]byte, 1 << 13)
 		rlen, _, err := conn.ReadFromUDP(message[:])
 		if err != nil {
 			panic(err)
 		}
-		go handleClient(gossiper, message, rlen)
+		go handleClient(gossiper, message[:rlen], rlen)
 
 	}
 }
@@ -58,7 +57,7 @@ func listenGossip(gossiper *Gossiper) {
 	conn := gossiper.GossipConn
 	defer conn.Close()
 	for {
-		message := make([]byte, 1000)
+		message := make([]byte, 1 << 14)
 		rlen, raddr, err := conn.ReadFromUDP(message[:])
 		if err != nil {
 			panic(err)
@@ -87,7 +86,11 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		gossiper.StoreLastPacket(packet)
 		gossiper.SimpleBroadcast(packet, sourceAddress)
 	} else {
-		if msg.Destination != nil {
+		if msg.Destination != nil && msg.File != nil && msg.Request != nil {
+			dataReply, filemetadata := gossiper.DownloadMetaFile(HexToString(*msg.Request), *msg.Destination, *msg.File)
+			gossiper.DownloadFile(dataReply, filemetadata)
+		} else if msg.Destination != nil {
+
 			privatemsg := &packets.PrivateMessage{
 				Origin:      gossiper.Name,
 				ID:          0,
@@ -97,9 +100,9 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			}
 			gossiper.SendPrivateMsg(privatemsg)
 			gossiper.StorePrivateMsg(privatemsg)
-		} else if msg.File != nil{
+		} else if msg.File != nil {
 			gossiper.ScanFile(*msg.File)
-		}else {
+		} else {
 			//RumorMongering
 			packet := packets.GossipPacket{
 				Rumor: &packets.RumorMessage{
@@ -133,8 +136,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.SimpleBroadcast(packet, sourceAddress)
 		gossiper.StoreLastPacket(packet)
 
-	} else if rumor := packet.Rumor; packet.Rumor != nil{
-		
+	} else if rumor := packet.Rumor; packet.Rumor != nil {
+
 		gossiper.LogRumor(rumor, peerAddr)
 		gossiper.AddPeer(peerAddr)
 		gossiper.LogPeers()
@@ -152,7 +155,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.StoreRumor(packet)
 		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, peerAddr)
 		gossiper.RumorMonger(&packet, peerAddr)
-		
 
 	} else if packet.StatusPacket != nil {
 		gossiper.LogStatusPacket(packet.StatusPacket, peerAddr)
@@ -184,7 +186,68 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			private.HopLimit -= 1
 			gossiper.SendPrivateMsg(private)
 		}
+	} else if reply := packet.DataReply; packet.DataReply != nil {
+		gossiper.DataBufferMux.Lock()
+		//fmt.Println("Hash data reply = ", HexToString(packet.DataReply.HashValue))
+		channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
+		gossiper.DataBufferMux.Unlock()
+		fmt.Println("found ? ", found)
+		if found {
+			
+			*channel <- *reply
+		}
+
+	} else if request := packet.DataRequest; request != nil {
+		fmt.Println(request.Origin, request.Destination, request.HopLimit)
+		if request.Destination != gossiper.Name && request.HopLimit > 0 {
+			request.HopLimit -= 1
+			gossiper.SendDirect(packet, request.Destination)
+		} else {
+
+			reply := packets.DataReply{Origin: gossiper.Name,
+				Destination: request.Origin,
+				HopLimit:    gossiper.HOPLIMIT,
+			}
+			reply.HashValue = []byte(request.HashValue)
+			pkt := packets.GossipPacket{DataReply: &reply}
+
+
+			//indexer tous les chunks
+			//Remplir filemetadata progressivement
+			gossiper.FilesInfoMux.Lock()
+			hashString := HexToString(request.HashValue)
+			fmt.Println("requesting ", hashString)
+			for k,_ := range gossiper.FilesInfo{
+				fmt.Println(k)
+			}
+			filemetadata, foundmetadata := gossiper.FilesInfo[hashString]
+			gossiper.FilesInfoMux.Unlock()
+			fmt.Println("foundmetadata", foundmetadata)
+			if foundmetadata {
+				for _, chunkHash := range filemetadata.MetaFile {
+					reply.Data = append(reply.Data, chunkHash[:]...)
+				}
+				fmt.Println("return metafile")
+
+			} else {
+				gossiper.FilesMux.Lock()
+				chunkData, foundChunk := gossiper.Files[hashString]
+				gossiper.FilesMux.Unlock()
+				if foundChunk {
+					reply.Data = chunkData
+					fmt.Println("return file")
+
+				} else {
+					fmt.Println("Chunk not found")
+
+				}
+
+			}
+			if len(reply.Data) > 0 {
+				gossiper.SendDirect(pkt, reply.Destination)
+			}
+
+		}
+
 	}
 }
-
-	
