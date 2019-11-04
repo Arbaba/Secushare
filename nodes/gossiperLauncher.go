@@ -195,7 +195,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			//fmt.Println("Hash data reply = ", HexToString(packet.DataReply.HashValue))
 			channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
 			gossiper.DataBufferMux.Unlock()
-			fmt.Println("found ? ", found)
 			if found {
 				
 				*channel <- *reply
@@ -219,18 +218,15 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 			gossiper.FilesInfoMux.Lock()
 			hashString := HexToString(request.HashValue)
-			fmt.Println("requesting ", hashString)
 			for k,_ := range gossiper.FilesInfo{
 				fmt.Println(k)
 			}
 			filemetadata, foundmetadata := gossiper.FilesInfo[hashString]
 			gossiper.FilesInfoMux.Unlock()
-			fmt.Println("foundmetadata", foundmetadata)
 			if foundmetadata {
 				for _, chunkHash := range filemetadata.MetaFile {
 					reply.Data = append(reply.Data, chunkHash[:]...)
 				}
-				fmt.Println("return metafile")
 
 			} else {
 				gossiper.FilesMux.Lock()
@@ -238,11 +234,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 				gossiper.FilesMux.Unlock()
 				if foundChunk {
 					reply.Data = chunkData
-					fmt.Println("return file")
-
-				} else {
-					fmt.Println("Chunk not found")
-
 				}
 
 			}
