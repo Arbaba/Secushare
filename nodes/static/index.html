@@ -20,7 +20,7 @@
 
   <!-- Navigation -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark static-top">
-    <div class="container">
+    <div class="container-fluid">
       <a class="navbar-brand" href="#">Peerster</a>
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
@@ -30,10 +30,10 @@
   </nav>
   <br>
   <!-- Page Content -->
-  <div class="container">
+  <div class="container-fluid">
 
     <div class="row">
-      <div class="col-lg-5" id="chatbox">
+      <div class="col-lg-4" id="chatbox">
         <h2>Chatbox</h2>
         <br>
         <select id="selectOrigin" class="form-control" onchange="selectChatBox($(this).val())">
@@ -53,12 +53,53 @@
           </div>
           
       </div>
+      <div class="col-lg-5">
+          <h2>Files</h2>
+          <table class="table table-striped table-responsive">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Size</th>
+                  <th scope="col">Metahash</th>
+                </tr>
+              </thead>
+              <tbody id="fileTable">
+  
+  
+  
+              </tbody>
+          </table>
+          <br>
+          <form action="/upload" method="POST" name="fileform" enctype="multipart/form-data">
+            <div class="form-group">
+              <input type="file" name="newFile" class="form-control-file" id="exampleFormControlFile1">
+              <br>
+              <button type="submit"   class="btn btn-primary mb-2">Share file</button>
+            </div>
+  
+          </form>
+          <br>
+          <form action="/files/download" method="POST" name="downloadFile">
+            <h3>Download file </h3>
+            <div class="form-group">
+              <input type="text" class="form-control" name="destination"  placeholder="Enter the destination node">
+              <br>
+
+              <input type="text" class="form-control" name="request"  placeholder="Enter the hex metahash">
+              <br>
+
+              <input type="text" class="form-control" name="filename"  placeholder="Enter the filename of the copy">
+              <br>
+
+              <button type="submit"   class="btn btn-primary mb-2">Download file</button>
+            </div>
+  
+        </div>
       <div class="col-lg-3" id="metadata">
         <h2>Peers</h2><br>
         <h4 id="peerID"></h3>
          <br> 
         <div class="peersList list-group overflow-auto" id="peersList">
-       
         </div>
         <br>
         <div class="input-group mb-4">
@@ -70,18 +111,7 @@
 
         
       </div>
-      <div class="col-lg-4">
-        <h2>Files</h2>
-
-        <form action="/upload" method="POST" name="fileform" enctype="multipart/form-data">
-          <div class="form-group">
-            <label for="exampleFormControlFile1">Example file input</label>
-            <input type="file" name="newFile" class="form-control-file" id="exampleFormControlFile1">
-            <button type="submit"   class="btn btn-primary mb-2">Share file</button>
-          </div>
-
-        </form>
-        </div>
+     
     </div>
   </div>
 
@@ -95,9 +125,15 @@
       var privateMessagesCount = {}
       var countMsg = 0
       var currentChannel ='Global'
+      var files = []
       function addPeer(address){
         console.log(address)
         $.get(`/peers/add/${address}`, function(d){})
+      }
+
+      function downloadfile(destination, hash){
+        console.log(address)
+        $.get(`/files/download/${destination}/${hash}`, function(d){})
       }
       
       function sendMsg(msg){
@@ -228,6 +264,22 @@
 
               setPeerID(d['PeerID'])
 
+            }
+          })
+          $.getJSON('files/list', function(d) {
+            console.log(d)
+            metahashes = files.map(f => f.MetaHash)
+            if(d && d['Files']){
+              d['Files'].forEach(fileInfo =>{
+                if(!metahashes.includes(fileInfo.MetaHash)){
+                  files.push(fileInfo)
+                   row = d3.select('#fileTable')
+                    .append('tr')
+                    row.append('td').text(fileInfo.FileName).attr('class', "word-break:break-all")
+                    row.append('td').text(fileInfo.FileSize).attr('class', "word-break:break-all")
+                    row.append('td').text(fileInfo.MetaHash).attr('class', "word-break:break-all")
+                }
+              })
             }
           })
 

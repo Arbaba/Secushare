@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"encoding/json"
+	"encoding/hex"
+
 	"fmt"
 	"net/http"
 	"regexp"
@@ -18,6 +20,13 @@ type Payload struct {
 	PeerID          string
 	Origins         []string
 	PrivateMessages map[string][]packets.PrivateMessage
+	Files 			[]FilePayload
+}
+
+type FilePayload struct {
+	FileName	string
+	FileSize	uint32
+	MetaHash	string  
 }
 
 type PrivateMessageRequest struct {
@@ -121,6 +130,40 @@ func RunServer(gossiper *Gossiper) {
 		handleClient(gossiper, encodedPacket, len(encodedPacket))
 
 	})
+
+	r.HandleFunc("/files/list", func(w http.ResponseWriter, r *http.Request) {
+		//check input
+		w.Header().Set("Content-Type", "application/json")
+		var files []FilePayload
+		gossiper.FilesInfoMux.Lock()
+		for k, fileInfo := range gossiper.FilesInfo {
+			files = append(files, FilePayload{fileInfo.FileName, fileInfo.FileSize, k})
+		}
+		gossiper.FilesInfoMux.Unlock()
+		payload := Payload{PeerID: gossiper.Name, Files: files }
+		json.NewEncoder(w).Encode(payload)
+
+	})
+
+	r.HandleFunc("/files/download", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)	
+
+		hash := r.FormValue("request")
+		dest := r.FormValue("destination")
+		name := r.FormValue("filename")
+		h, e := hex.DecodeString(hash)
+		if e != nil {
+			fmt.Println(e)
+			return
+		}
+		msg := packets.Message{Destination: &dest, Request:&h, File: &name}
+		encodedPacket, err := protobuf.Encode(&msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		handleClient(gossiper, encodedPacket, len(encodedPacket))
+	})
+
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./nodes/static/")))
 

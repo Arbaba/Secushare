@@ -4,6 +4,13 @@
 #metadata{
 }
 
+[class*="col-"]{
+    line-height:12px;
+}
+
+body{
+    padding-bottom:5px;
+}
 .message{
     border: 2px solid lightgray;
     border-radius: 5px;

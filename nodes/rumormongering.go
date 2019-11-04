@@ -117,7 +117,11 @@ func (gossiper *Gossiper) AckStatus(statuspkt *packets.StatusPacket, identifier 
 }
 
 func (gossiper *Gossiper) AckRandomStatusPkt(statuspkt *packets.StatusPacket, peerAddr string) {
-	if len(gossiper.RumorsReceived) == 0{return}
+	if len(gossiper.RumorsReceived) == 0{
+		useless_rumor_ID:= uint32(1)
+		gossiper.AckStatus(statuspkt, "useless identifier",peerAddr, useless_rumor_ID)
+		return 
+	}
 	randomPeeridx := rand.Intn(len(gossiper.RumorsReceived))
 	counter := 0
 	for k, v := range gossiper.RumorsReceived {
@@ -129,6 +133,7 @@ func (gossiper *Gossiper) AckRandomStatusPkt(statuspkt *packets.StatusPacket, pe
 				}
 			}
 		}
+		counter += 1
 	}
 
 }
@@ -169,17 +174,18 @@ func (gossiper *Gossiper) CompareStatus2(peerStat *packets.StatusPacket) (code i
 			}
 		}
 	}
-	// We loop in the other order, in order to discover unknown peers.
+	// We loop in the other order, in order to discover if the other peer
+	// has peers unknown to our gossiper.
 	// This may also indicate that we lack messages.
 	for _, s1 := range peerStat.Want {
 		known := false
-		for _, s2 := range peerStat.Want {
+		for _, s2 := range stat.Want {
 			if s1.Identifier == s2.Identifier {
 				known = true
 			}
 		}
 		if !known {
-			//gossiper.UpdateStatus(s1.Identifier, 0)
+			gossiper.UpdateVectorClock(&packets.RumorMessage{Origin: s1.Identifier, ID: uint32(0), Text:"" })
 			if s1.NextID != 1 && code != 0 {
 				code = 1
 			}

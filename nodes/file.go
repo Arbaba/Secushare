@@ -58,7 +58,6 @@ func (gossiper *Gossiper) ScanFile(filename string) {
 	gossiper.FilesInfoMux.Lock()
 	gossiper.FilesInfo[hex.EncodeToString(metaHash[:])] = &file
 	gossiper.FilesInfoMux.Unlock()
-	fmt.Println("metahash encoded ", hex.EncodeToString(metaHash[:]))
 	fmt.Printf("filename: %s\nmetaHash: %x\nfilesize: %d\n", filename, metaHash, fileSize)
 }
 
@@ -110,7 +109,6 @@ func (gossiper *Gossiper) DownloadMetaFile(metahash, destination, filename strin
 }
 
 func (gossiper *Gossiper) DownloadFile(metafileReply packets.DataReply, fileMetaData *FileMetaData) {
-	fmt.Println("reply len -----",len(metafileReply.Data))
 	var fileData []byte
 	for chunkNb := 0; chunkNb < len(metafileReply.Data)/32; chunkNb++ {
 		fmt.Printf("DOWNLOADING %s chunk %d from %s\n", fileMetaData.FileName, chunkNb, metafileReply.Origin)

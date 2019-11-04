@@ -187,16 +187,21 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			gossiper.SendPrivateMsg(private)
 		}
 	} else if reply := packet.DataReply; packet.DataReply != nil {
-		gossiper.DataBufferMux.Lock()
-		//fmt.Println("Hash data reply = ", HexToString(packet.DataReply.HashValue))
-		channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
-		gossiper.DataBufferMux.Unlock()
-		fmt.Println("found ? ", found)
-		if found {
-			
-			*channel <- *reply
+		if reply.Destination != gossiper.Name && reply.HopLimit > 0 {
+			reply.HopLimit -= 1
+			gossiper.SendDirect(packet, reply.Destination)
+		}else {
+			gossiper.DataBufferMux.Lock()
+			//fmt.Println("Hash data reply = ", HexToString(packet.DataReply.HashValue))
+			channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
+			gossiper.DataBufferMux.Unlock()
+			fmt.Println("found ? ", found)
+			if found {
+				
+				*channel <- *reply
+			}	
 		}
-
+		
 	} else if request := packet.DataRequest; request != nil {
 		fmt.Println(request.Origin, request.Destination, request.HopLimit)
 		if request.Destination != gossiper.Name && request.HopLimit > 0 {
@@ -212,8 +217,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			pkt := packets.GossipPacket{DataReply: &reply}
 
 
-			//indexer tous les chunks
-			//Remplir filemetadata progressivement
 			gossiper.FilesInfoMux.Lock()
 			hashString := HexToString(request.HashValue)
 			fmt.Println("requesting ", hashString)
