@@ -6,10 +6,10 @@ import (
 	"github.com/Arbaba/Peerster/packets"
 )
 
-func (gossiper *Gossiper) UpdateRouting(origin, address string) {
+func (gossiper *Gossiper) UpdateRouting(origin, address string, ID uint32) {
 	gossiper.RoutingTableMux.Lock()
 	defer gossiper.RoutingTableMux.Unlock()
-	if origin != gossiper.Name {
+	if nextID := gossiper.GetNextRumorID(origin); origin != gossiper.Name && (ID >= nextID || ID ==0){
 		gossiper.RoutingTable[origin] = address
 	}
 }

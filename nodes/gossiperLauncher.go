@@ -141,13 +141,12 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.LogRumor(rumor, peerAddr)
 		gossiper.AddPeer(peerAddr)
 		gossiper.LogPeers()
-		gossiper.UpdateRouting(rumor.Origin, peerAddr)
+		gossiper.UpdateRouting(rumor.Origin, peerAddr, rumor.ID)
 		gossiper.LogDSDVRumor(rumor, peerAddr)
 
 		rumor := gossiper.GetRumor(rumor.Origin, rumor.ID)
 		if rumor != nil {
 			//Rumor was already received, hence we discard the packet
-			fmt.Printf("Already received rumor from %s with ID %d and content %s", rumor.Origin, rumor.ID, rumor.Text)
 			return
 		}
 		gossiper.StoreLastPacket(packet)
@@ -176,7 +175,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 
 	} else if private := packet.Private; packet.Private != nil {
-		gossiper.UpdateRouting(private.Origin, peerAddr)
+		gossiper.UpdateRouting(private.Origin, peerAddr, private.ID)
 		gossiper.LogDSDVPrivate(private, peerAddr)
 
 		if private.Destination == gossiper.Name {
@@ -192,8 +191,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			gossiper.SendDirect(packet, reply.Destination)
 		}else {
 			gossiper.DataBufferMux.Lock()
-			//fmt.Println("Hash data reply = ", HexToString(packet.DataReply.HashValue))
-			channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
+ 			channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
 			gossiper.DataBufferMux.Unlock()
 			if found {
 				
@@ -218,9 +216,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 			gossiper.FilesInfoMux.Lock()
 			hashString := HexToString(request.HashValue)
-			for k,_ := range gossiper.FilesInfo{
-				fmt.Println(k)
-			}
 			filemetadata, foundmetadata := gossiper.FilesInfo[hashString]
 			gossiper.FilesInfoMux.Unlock()
 			if foundmetadata {
