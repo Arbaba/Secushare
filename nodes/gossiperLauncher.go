@@ -200,7 +200,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 		
 	} else if request := packet.DataRequest; request != nil {
-		fmt.Println(request.Origin, request.Destination, request.HopLimit)
+		//fmt.Println(request.Origin, request.Destination, request.HopLimit)
 		if request.Destination != gossiper.Name && request.HopLimit > 0 {
 			request.HopLimit -= 1
 			gossiper.SendDirect(packet, request.Destination)

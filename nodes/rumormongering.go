@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -49,7 +48,7 @@ func (gossiper *Gossiper) WaitForAck(ackID string, ackSenderIP string, rumorID u
 
 	case <-timeout:
 
-		fmt.Println(identifier, rumorID)
+		//fmt.Println(identifier, rumorID)
 		pkt := gossiper.GetRumorPacket(identifier, rumorID)
 		gossiper.RumorMonger(pkt, ackSenderIP)
 

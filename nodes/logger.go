@@ -21,7 +21,7 @@ func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address 
 			s += " "
 		}
 	}
-	fmt.Println(s)
+	//fmt.Println(s)
 }
 
 func (gossiper *Gossiper) LogRumor(rumor *packets.RumorMessage, peerAddr string) {
@@ -44,11 +44,11 @@ func (gossiper *Gossiper) LogMongering(target string) {
 }
 
 func (gossiper *Gossiper) LogSync(peerAddr string) {
-	fmt.Printf("IN SYNC WITH %s\n", peerAddr)
+	//fmt.Printf("IN SYNC WITH %s\n", peerAddr)
 }
 
 func (gossiper *Gossiper) LogFlip(target string) {
-	fmt.Printf("FLIPPED COIN sending rumor to %s\n", target)
+	//fmt.Printf("FLIPPED COIN sending rumor to %s\n", target)
 }
 
 func (gossiper *Gossiper) LogClientMsg(msg packets.Message) {
@@ -71,5 +71,5 @@ func (gossiper *Gossiper) LogDSDVPrivate(private *packets.PrivateMessage, addres
 	}
 }
 func (gossiper *Gossiper) LogPrivateMsg(private *packets.PrivateMessage) {
-	fmt.Printf("PRIVATE origin %s hop-limit %d contents %s\n", private.Origin, gossiper.HOPLIMIT, private.Text)
+	fmt.Printf("PRIVATE origin %s hop-limit %d contents %s\n", private.Origin, private.HopLimit, private.Text)
 }
