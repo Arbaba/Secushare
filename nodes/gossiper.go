@@ -36,6 +36,7 @@ type Gossiper struct {
 
 	DataBuffer		map[string]*chan packets.DataReply//Used to redirect datareplies to the right goroutine (see DownloadFile & DownloadMetafile)
 	Files			map[string][]byte//The actual files contents indexed by chunk hash
+	PeersMux		sync.Mutex
 	rumorsMux       sync.Mutex
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
@@ -70,7 +71,7 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		RoutingTable:   make(map[string]string),
 		Rtimer:         rtimer,
 		PrivateMsgs:    make(map[string][]*packets.PrivateMessage),
-		HOPLIMIT:		uint32(10),
+		HOPLIMIT:		uint32(9),
 		FilesInfo: 			make(map[string]*FileMetaData),
 		DataBuffer: 	make(map[string]*chan packets.DataReply),
 		Files: 			make(map[string][]byte),
@@ -117,6 +118,8 @@ func (gossiper *Gossiper) SimpleBroadcast(packet packets.GossipPacket, sourceAdd
 
 //Sends the packet to a random peer and returns the peer address
 func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) string {
+	gossiper.PeersMux.Lock()
+	defer gossiper.PeersMux.Unlock()
 	if len(gossiper.Peers) > 0 {
 		idx := rand.Intn(len(gossiper.Peers))
 		gossiper.SendPacket(packet, gossiper.Peers[idx])
@@ -127,6 +130,8 @@ func (gossiper *Gossiper) SendPacketRandom(packet packets.GossipPacket) string {
 }
 
 func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, exceptsAddresss string) string {
+	gossiper.PeersMux.Lock()
+	defer gossiper.PeersMux.Unlock()
 	if len(gossiper.Peers) == 0 || len(gossiper.Peers) == 1 && gossiper.Peers[0] == exceptsAddresss {
 		return ""
 	} else {
