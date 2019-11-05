@@ -3,14 +3,13 @@ package nodes
 import (
 	"fmt"
 
-	"strings"
 
 	"github.com/Arbaba/Peerster/packets"
 )
 
 //Prints to standard output
 func (gossiper *Gossiper) LogPeers() {
-	fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
+	//fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
 }
 
 func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address string) {

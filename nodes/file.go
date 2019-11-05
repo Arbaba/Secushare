@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 )
-
+//Struct used to store file infos 
 type FileMetaData struct {
 	FileName string
 	FileSize uint32
@@ -176,6 +176,3 @@ func (gossiper *Gossiper) SendDataRequest(request packets.DataRequest) {
 	gossiper.SendDirect(pkt, request.Destination)
 }
 
-func (gossiper *Gossiper) SendDataReply(reply packets.DataReply) {
-
-}

@@ -34,8 +34,8 @@ type Gossiper struct {
 	HOPLIMIT		uint32
 	FilesInfo 			map[string]*FileMetaData //files indexed by Metahash string
 
-	DataBuffer		map[string]*chan packets.DataReply
-	Files			map[string][]byte
+	DataBuffer		map[string]*chan packets.DataReply//Used to redirect datareplies to the right goroutine (see DownloadFile & DownloadMetafile)
+	Files			map[string][]byte//The actual files contents indexed by chunk hash
 	rumorsMux       sync.Mutex
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
