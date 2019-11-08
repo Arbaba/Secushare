@@ -5,11 +5,19 @@ import (
 	"fmt"
 	"net"
 	"encoding/hex"
-
+	"os"
 	"github.com/Arbaba/Peerster/packets"
 	"github.com/dedis/protobuf"
 )
 
+func allEmpty( args...*string)bool{
+	for _, s := range args {
+		if *s !=  ""{
+			return false
+		}
+	}
+	return true
+}
 func main() {
 	uiport := flag.String("UIPort", "8080", "port for the UI client")
 	msg := flag.String("msg", "", "message to be sent")
@@ -20,20 +28,33 @@ func main() {
 	flag.Parse()
 	target := fmt.Sprintf("127.0.0.1:%s", *uiport)
 	simpleMsg := packets.Message{}
-	if *dest != "" {
-		simpleMsg.Destination = dest
-		simpleMsg.Text = *msg
+	if *uiport != ""{
+		if *dest != "" && *msg != "" && allEmpty(file, request){
+			simpleMsg.Destination = dest
+			simpleMsg.Text = *msg
 
-	}
-	if *file != "" {
-		simpleMsg.File = file
-		if *request != "" {
-			b ,_:= hex.DecodeString(*request)
+		}else if *file != "" && *dest != "" && *request != "" && allEmpty(msg){
+			simpleMsg.Destination = dest
+
+			simpleMsg.File = file
+			b ,e:= hex.DecodeString(*request)
+			if e != nil {
+				fmt.Println("Unable to decoded hex hash")
+				os.Exit(1)
+			}
 			simpleMsg.Request = &b
-		}
+		}else if  *file != "" && allEmpty(dest, msg, request){
+			simpleMsg.File = file
 
-	} else {
-		simpleMsg.Text = *msg
+		} else if *msg != "" && allEmpty(dest, file, request){
+			simpleMsg.Text = *msg
+		}else {
+			fmt.Println("ERROR (Bad argument combination)")
+			return
+		}
+	}else {
+		fmt.Println("ERROR (Bad argument combination)")
+		return
 	}
 	encodedPacket, err := protobuf.Encode(&simpleMsg)
 	if err != nil {

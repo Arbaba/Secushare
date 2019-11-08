@@ -232,9 +232,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 				}
 
 			}
-			if len(reply.Data) > 0 {
-				gossiper.SendDirect(pkt, reply.Destination)
-			}
+			gossiper.SendDirect(pkt, reply.Destination)
+			
 
 		}
 
