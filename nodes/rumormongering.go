@@ -42,8 +42,12 @@ func (gossiper *Gossiper) WaitForAck(ackID string, ackSenderIP string, rumorID u
 	}()
 	identifier := strings.Split(ackID, ";")[1]
 	gossiper.AcksChannelsMux.Lock()
-	channel := *gossiper.AcksChannels[ackID]
+	channelptr,ok  := gossiper.AcksChannels[ackID]
+
 	gossiper.AcksChannelsMux.Unlock()
+	if !ok {
+		return 
+	}
 	select {
 
 	case <-timeout:
@@ -52,7 +56,7 @@ func (gossiper *Gossiper) WaitForAck(ackID string, ackSenderIP string, rumorID u
 		pkt := gossiper.GetRumorPacket(identifier, rumorID)
 		gossiper.RumorMonger(pkt, ackSenderIP)
 
-	case status, open := <-channel:
+	case status, open := <-*channelptr:
 		if open {
 			/*gossiper.AcksChannelsMux.Lock()
 			defer gossiper.AcksChannelsMux.Unlock()*/

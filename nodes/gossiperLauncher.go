@@ -204,7 +204,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		if request.Destination != gossiper.Name && request.HopLimit > 0 {
 			request.HopLimit -= 1
 			gossiper.SendDirect(packet, request.Destination)
-		} else {
+		} else if request.Destination == gossiper.Name{
 
 			reply := packets.DataReply{Origin: gossiper.Name,
 				Destination: request.Origin,

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-
+	"strings"
 	"github.com/Arbaba/Peerster/packets"
 	"github.com/dedis/protobuf"
 	"github.com/gorilla/mux"
@@ -164,6 +164,12 @@ func RunServer(gossiper *Gossiper) {
 		handleClient(gossiper, encodedPacket, len(encodedPacket))
 	})
 
+	r.HandleFunc("/files/search/{keywords}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		keywords := strings.Split(vars["keywords"], ",")
+		fmt.Println(keywords)
+
+	})
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./nodes/static/")))
 

@@ -93,7 +93,13 @@
 
               <button type="submit"   class="btn btn-primary mb-2">Download file</button>
             </div>
-  
+          </form>
+            <h3>File search </h3>
+            <div class="form-group">
+              <input id="keywords" type="text" class="form-control" name="keywords"  placeholder="Enter the file keywords">
+              <br>
+              <button onclick="searchFile($('#keywords').val())"  class="btn btn-primary mb-2">Download file</button>
+            </div>
         </div>
       <div class="col-lg-3" id="metadata">
         <h2>Peers</h2><br>
@@ -144,6 +150,12 @@
           $.get(`/messages/send/${msg}`, function(d){})
         }
 
+      }
+
+      function searchFile(keywords){
+        if(keywords){
+          $.get(`/files/search/${keywords}`, d =>{})
+        }
       }
 
       function selectChatBox(id){
