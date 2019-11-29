@@ -26,4 +26,4 @@ func Contains(slice []string, e string) bool {
 		}
 	}
 	return false
-} 
+}  
