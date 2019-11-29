@@ -45,7 +45,7 @@ type SearchReply struct {
 
 type SearchResult struct {
 	FileName string 
-	MetafileHash []byte
+	MetaFileHash []byte
 	ChunkMap []uint64
 	ChunkCount uint64
 }

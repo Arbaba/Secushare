@@ -6,6 +6,9 @@ import (
 	"github.com/Arbaba/Peerster/packets"
 	"sync"
 	"math"
+	"time"
+	"regexp"
+	"fmt"
 )
 
 type CompletedSearches struct {
@@ -14,19 +17,48 @@ type CompletedSearches struct {
 }
 //Queue where all searches spend at most 0.5 seconds
 type SearchesQueue struct {
-	Keywords[][]string
+	searches []packets.SearchRequest
 	sync.Mutex
 }
 
-func (queue *SearchesQueue) push(keywords []string){
-
+func (queue *SearchesQueue) push(request packets.SearchRequest){
+	queue.Lock()
+	idx := len(queue.searches)
+	queue.searches = append(queue.searches, request)
+	queue.Unlock()
+	ticker := time.NewTicker(time.Millisecond * time.Duration(500))
+	defer ticker.Stop()
+	select {
+	case <-ticker.C:
+		queue.Lock()
+		queue.searches = append(queue.searches[idx:], queue.searches[idx + 1:]...)
+		queue.Unlock()
+	}
+	
 }
 
-func (queue *SearchesQueue) pop() []string{
-	return nil
+func (queue *SearchesQueue) pop(){
+	queue.Lock()
+	defer queue.Unlock()
+	if len(queue.searches) == 0 {
+		//should maybe return an error
+		return
+	}
+	queue.searches = queue.searches[1:]
 }
 
-func (queue *SearchesQueue) isValid(keywords []string) bool{
+func (queue *SearchesQueue) isValid(request packets.SearchRequest) bool{
+	queue.Lock()
+	defer queue.Unlock()
+	for _, searchRequest := range queue.searches {
+		if searchRequest.Origin == request.Origin {
+			for idx, kw := range request.Keywords {
+				if searchRequest.Keywords[idx] == kw{
+					return false
+				}
+			}
+		}
+	}
 	return true
 }
 
@@ -67,8 +99,31 @@ func ProcessBudget(budget uint64, peers []string)map[string]uint64{
 }
 
 //Searches for a file locally	
-func SearchFile(keywords []string, filesInfo []FileMetaData, files map[string][]byte) []packets.SearchResult{
-
-
-	return nil 
+func SearchFile(keywords []string, filesInfo map[string]FileMetaData, files map[string][]byte) []packets.SearchResult{
+	var results []packets.SearchResult
+	for metafileHash, fileInfo := range filesInfo {
+		for _, kw := range keywords {
+			match, _ := regexp.MatchString(fmt.Sprintf("[[:alpha:]]%s[[:alpha:]]", kw), fileInfo.FileName )
+			if match {
+				var chunkMap []uint64
+				for idx, chunkHash := range fileInfo.MetaFile {
+					data, found := files[HexToString(chunkHash[:])]
+					if found && len(data) > 0 {
+						chunkMap = append(chunkMap, uint64(idx))
+					}
+				}
+				searchResult := packets.SearchResult{
+					FileName: fileInfo.FileName,
+					MetaFileHash: []byte(metafileHash),
+					ChunkMap: chunkMap,
+					ChunkCount: uint64(len(fileInfo.MetaFile)),
+				}
+				results = append(results, searchResult)
+				break
+			}
+			
+		}
+	
+	}
+	return results 
 }
