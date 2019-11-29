@@ -15,6 +15,8 @@ type FileMetaData struct {
 	FileName string
 	FileSize uint32
 	MetaFile [][sha256.Size]byte
+	ChunksOwners map[int][]string
+	MatchPeers []string //peers who have the whole file 
 }
 
 
@@ -58,7 +60,7 @@ func (gossiper *Gossiper) ScanFile(filename string) {
 			stat, err := f.Stat()
 			check(err)
 			fileSize := uint32(stat.Size())
-			file := FileMetaData{filename, fileSize, metaFile}
+			file := FileMetaData{FileName:filename, FileSize:fileSize,MetaFile: metaFile,}
 			gossiper.FilesInfoMux.Lock()
 			gossiper.FilesInfo[hex.EncodeToString(metaHash[:])] = &file
 			gossiper.FilesInfoMux.Unlock()

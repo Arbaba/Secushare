@@ -16,4 +16,14 @@ func RandomRange(k, n int) []int{
 
 	}
 	return randomIndexes
-}		
+}		 
+
+
+func Contains(slice []string, e string) bool {
+	for _, s := range slice {
+		if s == e {
+			return true
+		}
+	}
+	return false
+} 

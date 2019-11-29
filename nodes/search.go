@@ -62,7 +62,8 @@ func (queue *SearchesQueue) isValid(request packets.SearchRequest) bool{
 	return true
 }
 
-func (completed *SearchesQueue) ProcessReplies(reply packets.SearchReply){
+//returns the files matched by the origin of the reply
+func ProcessReplies(reply packets.SearchReply, repliesHistory []packets.SearchReply) []string{
 	//filter les replies
 }
 
@@ -98,8 +99,57 @@ func ProcessBudget(budget uint64, peers []string)map[string]uint64{
 	return budgets
 }
 
+func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,matchingPeers map[string][]string, resultsHistory []packets.SearchResults){
+	var budget uint64
+	if tmpbudget == nil {
+		budget = uint64(2)
+	}else {
+		budget = *tmpbudget
+	}
+
+	budgets := 	ProcessBudget(budget - 1, gossiper.GetAllOrigins())
+	for peerName, budget := range budgets {
+		searchReq := &packets.SearchRequest{
+			Origin: gossiper.Name, 
+			Budget: budget,
+			Keywords: keywords,
+		}
+		pkt := packets.GossipPacket{SearchRequest: searchReq}
+		gossiper.SendDirect(pkt, peerName)
+	}
+	ticker := time.NewTicker(time.Second * time.Duration(1))
+	
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if budget < 32 && tmpbudget == nil{
+				newbudget := *tmpbudget *uint64(2)
+				go gossiper.SearchFile(keywords, &newbudget, nbMatches)
+				return
+			}
+		case results := <-	*gossiper.SearchChannel:
+			/*
+			Process search replies.
+			Maintain a map filename -> (map chunk -> list origins)	
+			*/
+			if match {
+				matchingPeers = append(matchingPeers, result.Origin )
+				if len(nbMatches) == 2 {
+					fmt.Println("SEARCH FINISHED")
+					return
+				}
+
+			}
+
+
+		}
+	}
+
+}
+
 //Searches for a file locally	
-func SearchFile(keywords []string, filesInfo map[string]FileMetaData, files map[string][]byte) []packets.SearchResult{
+func SearchFileLocally(keywords []string, filesInfo map[string]FileMetaData, files map[string][]byte) []packets.SearchResult{
 	var results []packets.SearchResult
 	for metafileHash, fileInfo := range filesInfo {
 		for _, kw := range keywords {

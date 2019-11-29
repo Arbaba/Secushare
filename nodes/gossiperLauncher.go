@@ -105,22 +105,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			gossiper.ScanFile(*msg.File)
 
 		}else if msg.Keywords != nil {
-			if msg.Budget == nil  {
-				b:= ((uint64(2)))
-				msg.Budget = &b
-			}
-
-	
-			budgets := 	ProcessBudget(*msg.Budget - 1, gossiper.GetAllOrigins())
-			for peerName, budget := range budgets {
-				searchReq := &packets.SearchRequest{
-					Origin: gossiper.Name, 
-					Budget: budget,
-					Keywords: *msg.Keywords,
-				}
-				pkt := packets.GossipPacket{SearchRequest: searchReq}
-				gossiper.SendDirect(pkt, peerName)
-			}
+			gossiper.SearchFile(*msg.Keywords, msg.Budget)
 		} else {
 			//RumorMongering
 			packet := packets.GossipPacket{
@@ -257,6 +242,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 
 	}else if searchRequest := packet.SearchRequest; searchRequest != nil {
-		
+
 	}
 }
