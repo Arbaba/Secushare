@@ -127,6 +127,28 @@ func peerStatus(id string, nextID uint32) packets.PeerStatus {
 	return packets.PeerStatus{Identifier: id, NextID: nextID}
 }
 
+
+func checkBudgets( budgets map[string]uint64,generalBudget, lowerBudget uint64) bool{
+	lowerBudgetFound := false 
+	for _, budget := range budgets {
+		if budget != generalBudget && lowerBudgetFound && budget == lowerBudget{
+			return false
+		}else if budget == lowerBudget{
+			lowerBudgetFound = true
+		}else if budget != budget {
+			return false
+		}
+	}
+
+	return lowerBudgetFound
+}
+func TestProcessBudget(t *testing.T){
+	budgets1 := nodes.ProcessBudget(2, []string{"A","B", "C","D","E"})
+	assertEqual(t, checkBudgets(budgets1, 1,1), true)
+	budgets2 := nodes.ProcessBudget(9, []string{"A","B", "C","D","E"})
+	assertEqual(t, checkBudgets(budgets2, 2,1), true)
+}
+
 /*
 func TestCompareStatusEqual(t *testing.T) {
 	status := []packets.PeerStatus{peerStatus("A", 1), peerStatus("B", 2)}

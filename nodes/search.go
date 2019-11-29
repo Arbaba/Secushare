@@ -28,6 +28,7 @@ func (queue *SearchesQueue) pop() []string{
 func (queue *SearchesQueue) isValid(keywords []string) bool{
 	return true
 }
+
 func (completed *SearchesQueue) ProcessReplies(reply packets.SearchReply){
 	//filter les replies
 }
