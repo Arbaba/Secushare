@@ -144,9 +144,13 @@ func checkBudgets( budgets map[string]uint64,generalBudget, lowerBudget uint64) 
 }
 func TestProcessBudget(t *testing.T){
 	budgets1 := nodes.ProcessBudget(2, []string{"A","B", "C","D","E"})
+	
 	assertEqual(t, checkBudgets(budgets1, 1,1), true)
 	budgets2 := nodes.ProcessBudget(9, []string{"A","B", "C","D","E"})
+
 	assertEqual(t, checkBudgets(budgets2, 2,1), true)
+	fmt.Println(budgets1, budgets2)
+	fmt.Println(nodes.ProcessBudget(12, []string{"A","B", "C","D","E"}))
 }
 
 /*

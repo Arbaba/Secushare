@@ -10,7 +10,10 @@ func RandomRange(k, n int) []int{
 	}
 	var randomIndexes []int
 	for i := 0; i < k; i++{
-		randomIndexes = append(randomIndexes, indexes[rand.Intn(len(indexes))])
+		ridx :=rand.Intn(len(indexes))
+		randomIndexes = append(randomIndexes, indexes[ridx])
+		indexes = append(indexes[:ridx], indexes[ridx + 1:]...)
+
 	}
 	return randomIndexes
 }		
