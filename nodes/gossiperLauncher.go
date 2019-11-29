@@ -86,6 +86,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		gossiper.StoreLastPacket(packet)
 		gossiper.SimpleBroadcast(packet, sourceAddress)
 	} else {
+		//TODO: Refactor with AllNonEmpty
 		if msg.Destination != nil && msg.File != nil && msg.Request != nil {
 			dataReply, filemetadata := gossiper.DownloadMetaFile(HexToString(*msg.Request), *msg.Destination, *msg.File)
 			gossiper.DownloadFile(dataReply, filemetadata)
@@ -102,6 +103,24 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			gossiper.StorePrivateMsg(privatemsg)
 		} else if msg.File != nil {
 			gossiper.ScanFile(*msg.File)
+
+		}else if msg.Keywords != nil {
+			if msg.Budget == nil  {
+				b:= ((uint64(2)))
+				msg.Budget = &b
+			}
+
+	
+			budgets := 	ProcessBudget(*msg.Budget - 1, gossiper.GetAllOrigins())
+			for peerName, budget := range budgets {
+				searchReq := &packets.SearchRequest{
+					Origin: gossiper.Name, 
+					Budget: budget,
+					Keywords: *msg.Keywords,
+				}
+				pkt := packets.GossipPacket{SearchRequest: searchReq}
+				gossiper.SendDirect(pkt, peerName)
+			}
 		} else {
 			//RumorMongering
 			packet := packets.GossipPacket{
@@ -237,5 +256,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 		}
 
+	}else if searchRequest := packet.SearchRequest; searchRequest != nil {
+		
 	}
 }

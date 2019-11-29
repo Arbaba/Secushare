@@ -50,3 +50,6 @@ type SearchResult struct {
 	ChunkCount uint64
 }
 
+func (result *SearchResult) IsComplete() bool{
+	return len(result.ChunkMap) == int(result.ChunkCount)
+}

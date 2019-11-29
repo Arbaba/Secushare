@@ -8,11 +8,23 @@ import (
 	"os"
 	"github.com/Arbaba/Peerster/packets"
 	"github.com/dedis/protobuf"
+	"strings"
+	"strconv"
 )
 
 func allEmpty( args...*string)bool{
 	for _, s := range args {
 		if *s !=  ""{
+			return false
+		}
+	}
+	return true
+}
+
+
+func allNonEmpty( args...*string)bool{
+	for _, s := range args {
+		if *s ==  ""{
 			return false
 		}
 	}
@@ -24,7 +36,8 @@ func main() {
 	dest := flag.String("dest", "", "destination for the private message")
 	file := flag.String("file", "", "file to be indexed by the gossiper")
 	request := flag.String("request", "", "Request of a chunk or metafile of this hash")
-
+	keywords := flag.String("keywords", "", "Search keywords")
+	budget := flag.String("budget", "", "Search budget")
 	flag.Parse()
 	target := fmt.Sprintf("127.0.0.1:%s", *uiport)
 	simpleMsg := packets.Message{}
@@ -48,6 +61,18 @@ func main() {
 
 		} else if *msg != "" && allEmpty(dest, file, request){
 			simpleMsg.Text = *msg
+
+		}else if allNonEmpty(keywords, budget) && allEmpty(dest, file, request, msg){
+			kw := strings.Split(*keywords, ",")
+			b , err := strconv.ParseUint(*budget, 10, 64)
+			if err  != nil {
+				panic(err)
+
+			}
+
+			simpleMsg.Keywords = &kw
+			simpleMsg.Budget = &b
+		
 		}else {
 			fmt.Println("ERROR (Bad argument combination)")
 			return

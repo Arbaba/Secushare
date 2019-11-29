@@ -55,7 +55,9 @@ func (gossiper *Gossiper) GetAllOrigins() []string {
 	defer gossiper.RoutingTableMux.Unlock()
 	var origins []string
 	for origin, _ := range gossiper.RoutingTable {
-		origins = append(origins, origin)
+		if origin != gossiper.Name {
+			origins = append(origins, origin)
+		}
 	}
 	return origins
 }

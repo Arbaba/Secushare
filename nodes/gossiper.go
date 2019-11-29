@@ -165,7 +165,7 @@ func (gossiper *Gossiper) GetLastRumorsSince(idx int) []packets.RumorMessage {
 
 		for _, packet := range gossiper.LastPackets[idx:] {
 			if packet.Simple != nil {
-
+				
 				s := packet.Simple
 				copy = append(copy, packets.RumorMessage{s.OriginalName, 0, s.Contents})
 			} else if packet.Rumor != nil {

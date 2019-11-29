@@ -1,0 +1,2 @@
+./Peerster --UIPort 12345 --gossipAddr 127.0.0.1:5000 --name PeerA --peers 127.0.0.1:5001 --antiEntropy 10 --rtimer 10 --GUIPort 8080
+./Peerster --UIPort 12346 --gossipAddr 127.0.0.1:5001 --name PeerB --peers 127.0.0.1:5002 --antiEntropy 10 --rtimer 10 --GUIPort 8081
