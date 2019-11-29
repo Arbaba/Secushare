@@ -98,6 +98,24 @@ func ProcessBudget(budget uint64, peers []string)map[string]uint64{
 	return budgets
 }
 
+func (gossiper *Gossiper) ForwardSearchRequest(request *packets.SearchRequest){
+	if request.Budget > 0{
+		request.Budget -= 1
+		budgets := ProcessBudget(request.Budget, gossiper.Peers)
+		for peer, budget := range budgets {
+			req := packets.SearchRequest{
+				Origin: request.Origin,
+				Budget: budget, 
+				Keywords: request.Keywords,
+			}
+			pkt := packets.GossipPacket{SearchRequest:&req}
+			gossiper.SendDirect(pkt, peer)
+
+		}
+	}
+}
+
+
 func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesMatches map[string][]string){
 	var budget uint64
 	if tmpbudget == nil {
@@ -127,7 +145,7 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 				go gossiper.SearchFile(keywords, &newbudget, filesMatches)
 				return
 			}
-		case reply := <-	*gossiper.SearchChannel:
+		case reply := <-gossiper.SearchChannel:
 			/*
 			Process search replies.
 			Maintain a map filename -> (map chunk -> list origins)	
@@ -147,7 +165,8 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 					gossiper.Matches.Lock()
 					gossiper.Matches.Results = append(gossiper.Matches.Results, *result)
 					gossiper.Matches.Unlock()
-
+					gossiper.LogMatch(&reply, result)
+					
 				}
 			}
 
@@ -161,7 +180,7 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 				
 
 				//
-				gossiper.FilesInfoMux.Lock()
+				/*gossiper.FilesInfoMux.Lock()
 				for hash, peers := range filesMatches {
 					for _, peer := range peers{
 						if !Contains(gossiper.FilesInfo[hash].MatchedPeers, peer){
@@ -169,7 +188,7 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 						}
 					}
 				}
-				gossiper.FilesInfoMux.Unlock()	
+				gossiper.FilesInfoMux.Unlock()	*/
 				return			
 
 			}
@@ -179,15 +198,17 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 }
 
 //Searches for a file locally	
-func SearchFileLocally(keywords []string, filesInfo map[string]FileMetaData, files map[string][]byte) []packets.SearchResult{
-	var results []packets.SearchResult
-	for metafileHash, fileInfo := range filesInfo {
+func (gossiper *Gossiper) SearchFilesLocally(req *packets.SearchRequest) packets.SearchReply{
+	var results []*packets.SearchResult
+	keywords :=req.Keywords
+	for metafileHash, fileInfo := range gossiper.FilesInfo {
 		for _, kw := range keywords {
-			match, _ := regexp.MatchString(fmt.Sprintf("[[:alpha:]]%s[[:alpha:]]", kw), fileInfo.FileName )
+			match, _ := regexp.MatchString(fmt.Sprintf("[[:alpha:]]*%s[[:alpha:]]*", kw), fileInfo.FileName )
+			fmt.Println(kw, fileInfo.FileName, match)
 			if match {
 				var chunkMap []uint64
 				for idx, chunkHash := range fileInfo.MetaFile {
-					data, found := files[HexToString(chunkHash[:])]
+					data, found := gossiper.Files[HexToString(chunkHash[:])]
 					if found && len(data) > 0 {
 						chunkMap = append(chunkMap, uint64(idx))
 					}
@@ -198,12 +219,19 @@ func SearchFileLocally(keywords []string, filesInfo map[string]FileMetaData, fil
 					ChunkMap: chunkMap,
 					ChunkCount: uint64(len(fileInfo.MetaFile)),
 				}
-				results = append(results, searchResult)
+				results = append(results, &searchResult)
 				break
 			}
 			
 		}
 	
 	}
-	return results 
+	reply := packets.SearchReply{
+		Origin: gossiper.Name,
+		Destination: req.Origin, 
+		HopLimit: gossiper.HOPLIMIT,
+		Results: results,
+	}
+	return reply 
 }
+

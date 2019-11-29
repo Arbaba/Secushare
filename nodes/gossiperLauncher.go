@@ -242,6 +242,24 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 
 	}else if searchRequest := packet.SearchRequest; searchRequest != nil {
-
+		fmt.Println(*searchRequest)
+		gossiper.UpdateRouting(searchRequest.Origin, peerAddr, 0)
+		reply := gossiper.SearchFilesLocally(searchRequest)
+		if len(reply.Results) > 0 {
+			pkt := packets.GossipPacket{SearchReply: &reply}
+			gossiper.SendDirect(pkt, searchRequest.Origin)
+		}
+		fmt.Println(reply.Results)
+		gossiper.ForwardSearchRequest(searchRequest)
+	}else if searchReply:= packet.SearchReply; searchReply != nil {
+		fmt.Println(*searchReply)
+		gossiper.UpdateRouting(searchReply.Origin, peerAddr, 0)
+		if searchReply.Destination == gossiper.Name{
+			gossiper.SearchChannel <- *searchReply
+		}else if searchReply.HopLimit > 0{
+			searchReply.HopLimit -= 1
+			gossiper.SendDirect(packet, searchReply.Destination)
+		}
+		
 	}
 }

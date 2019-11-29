@@ -2,8 +2,8 @@ package nodes
 
 import (
 	"fmt"
-
-	"strings"
+	"strconv"
+	//"strings"
 	"github.com/Arbaba/Peerster/packets"
 )
 
@@ -11,7 +11,7 @@ import (
 func (gossiper *Gossiper) LogPeers() {
 	gossiper.PeersMux.Lock()
 	defer gossiper.PeersMux.Unlock()
-	fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
+	//fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
 }
 
 func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address string) {
@@ -26,11 +26,11 @@ func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address 
 }
 
 func (gossiper *Gossiper) LogRumor(rumor *packets.RumorMessage, peerAddr string) {
-	fmt.Printf("RUMOR origin %s from %s ID %d contents %s\n",
+	/*fmt.Printf("RUMOR origin %s from %s ID %d contents %s\n",
 		rumor.Origin,
 		peerAddr,
 		rumor.ID,
-		rumor.Text)
+		rumor.Text)*/
 }
 
 func (gossiper *Gossiper) LogSimpleMessage(packet *packets.SimpleMessage) {
@@ -41,7 +41,7 @@ func (gossiper *Gossiper) LogSimpleMessage(packet *packets.SimpleMessage) {
 }
 
 func (gossiper *Gossiper) LogMongering(target string) {
-	fmt.Printf("MONGERING with %s\n", target)
+	//fmt.Printf("MONGERING with %s\n", target)
 }
 
 func (gossiper *Gossiper) LogSync(peerAddr string) {
@@ -73,4 +73,27 @@ func (gossiper *Gossiper) LogDSDVPrivate(private *packets.PrivateMessage, addres
 }
 func (gossiper *Gossiper) LogPrivateMsg(private *packets.PrivateMessage) {
 	fmt.Printf("PRIVATE origin %s hop-limit %d contents %s\n", private.Origin, private.HopLimit, private.Text)
+}
+
+
+func (gossiper *Gossiper) LogSearchReply(reply *packets.SearchReply){
+
+}
+
+
+func (gossiper *Gossiper) LogMatch(reply *packets.SearchReply, result*packets.SearchResult){
+	s :=""
+	for _, chunknb := range result.ChunkMap{
+		s += strconv.FormatUint(chunknb, 10) + ","
+	}
+	fmt.Println(result.ChunkMap)
+	s = s[:(len(s)-1)]
+	fmt.Printf("FOUND match %s at %s \nmetafile=%s \nchunks=%s\n", 
+				result.FileName, 
+				reply.Origin, 
+				HexToString(result.MetaFileHash[:]),
+				s,
+			)
+
+	
 }
