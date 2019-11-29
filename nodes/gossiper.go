@@ -37,6 +37,7 @@ type Gossiper struct {
 	DataBuffer		map[string]*chan packets.DataReply//Used to redirect datareplies to the right goroutine (see DownloadFile & DownloadMetafile)
 	Files			map[string][]byte//The actual files contents indexed by chunk hash
 	SearchChannel	*chan packets.SearchReply	
+	Matches			Matches
 	PeersMux		sync.Mutex
 	rumorsMux       sync.Mutex
 	AcksChannelsMux sync.Mutex
@@ -55,7 +56,9 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 
 	gossipAddr, gossipConn := UdpConnection(address)
 	clientAddr, clientConn := UdpConnection(fmt.Sprintf("%s:%s", ip, uiport))
-
+	searchChannel := make(chan packets.SearchReply, 100)
+	var matchesList []packets.SearchResult
+	matches := Matches{Results:matchesList}
 	gossiper := &Gossiper{
 		GossipAddr:     gossipAddr,
 		GossipConn:     gossipConn,
@@ -76,7 +79,9 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		FilesInfo: 			make(map[string]*FileMetaData),
 		DataBuffer: 	make(map[string]*chan packets.DataReply),
 		Files: 			make(map[string][]byte),
-
+		SearchChannel:	&searchChannel,
+		Matches:	matches,
+		
 	}
 	return gossiper
 }

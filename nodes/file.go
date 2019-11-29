@@ -16,7 +16,7 @@ type FileMetaData struct {
 	FileSize uint32
 	MetaFile [][sha256.Size]byte
 	ChunksOwners map[int][]string
-	MatchPeers []string //peers who have the whole file 
+	MatchedPeers []string //peers who have the whole file 
 }
 
 

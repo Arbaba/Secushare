@@ -11,8 +11,10 @@ import (
 	"fmt"
 )
 
-type CompletedSearches struct {
-	List []packets.SearchReply
+
+
+type Matches struct {
+	Results []packets.SearchResult
 	sync.Mutex
 }
 //Queue where all searches spend at most 0.5 seconds
@@ -65,10 +67,7 @@ func (queue *SearchesQueue) isValid(request packets.SearchRequest) bool{
 //returns the files matched by the origin of the reply
 func ProcessReplies(reply packets.SearchReply, repliesHistory []packets.SearchReply) []string{
 	//filter les replies
-}
-
-func (completed *CompletedSearches) Add(searchreply packets.SearchReply) {
-
+	return nil
 }
  
 
@@ -99,7 +98,7 @@ func ProcessBudget(budget uint64, peers []string)map[string]uint64{
 	return budgets
 }
 
-func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,matchingPeers map[string][]string, resultsHistory []packets.SearchResults){
+func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesMatches map[string][]string){
 	var budget uint64
 	if tmpbudget == nil {
 		budget = uint64(2)
@@ -125,24 +124,55 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,matchi
 		case <-ticker.C:
 			if budget < 32 && tmpbudget == nil{
 				newbudget := *tmpbudget *uint64(2)
-				go gossiper.SearchFile(keywords, &newbudget, nbMatches)
+				go gossiper.SearchFile(keywords, &newbudget, filesMatches)
 				return
 			}
-		case results := <-	*gossiper.SearchChannel:
+		case reply := <-	*gossiper.SearchChannel:
 			/*
 			Process search replies.
 			Maintain a map filename -> (map chunk -> list origins)	
 			*/
-			if match {
-				matchingPeers = append(matchingPeers, result.Origin )
-				if len(nbMatches) == 2 {
-					fmt.Println("SEARCH FINISHED")
-					return
-				}
+			for _, result:= range reply.Results{
+				hashstring := HexToString(result.MetaFileHash[:])
+				if len(result.ChunkMap) == int(result.ChunkCount){
+					//check if the file was not already matched by the peer
+					if matchedPeers,found := filesMatches[result.FileName]; found {
+						if !Contains(matchedPeers,reply.Origin){
+							filesMatches[hashstring] = append( matchedPeers,reply.Origin)
+						}
+						
+					}else {
+						filesMatches[hashstring] = []string{reply.Origin}
+					}
+					gossiper.Matches.Lock()
+					gossiper.Matches.Results = append(gossiper.Matches.Results, *result)
+					gossiper.Matches.Unlock()
 
+				}
 			}
 
+			nbMatches := 0
+			for _,matchedPeers := range filesMatches{
+				if len(matchedPeers) > 0{nbMatches++}
+			}
 
+			if nbMatches >= 2{
+				fmt.Println("SEARCH FINISHED")
+				
+
+				//
+				gossiper.FilesInfoMux.Lock()
+				for hash, peers := range filesMatches {
+					for _, peer := range peers{
+						if !Contains(gossiper.FilesInfo[hash].MatchedPeers, peer){
+							gossiper.FilesInfo[hash].MatchedPeers = append(gossiper.FilesInfo[hash].MatchedPeers, peer)
+						}
+					}
+				}
+				gossiper.FilesInfoMux.Unlock()	
+				return			
+
+			}
 		}
 	}
 
