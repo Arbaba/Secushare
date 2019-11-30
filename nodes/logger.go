@@ -88,7 +88,7 @@ func (gossiper *Gossiper) LogMatch(reply *packets.SearchReply, result*packets.Se
 	}
 	fmt.Println(result.ChunkMap)
 	s = s[:(len(s)-1)]
-	fmt.Printf("FOUND match %s at %s \nmetafile=%s \nchunks=%s\n", 
+	fmt.Printf("FOUND match %s at %s metafile=%s chunks=%s\n", 
 				result.FileName, 
 				reply.Origin, 
 				HexToString(result.MetaFileHash[:]),
