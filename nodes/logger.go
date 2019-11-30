@@ -3,7 +3,7 @@ package nodes
 import (
 	"fmt"
 	"strconv"
-	//"strings"
+	"strings"
 	"github.com/Arbaba/Peerster/packets"
 )
 
@@ -11,7 +11,7 @@ import (
 func (gossiper *Gossiper) LogPeers() {
 	gossiper.PeersMux.Lock()
 	defer gossiper.PeersMux.Unlock()
-	//fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
+	fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
 }
 
 func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address string) {
@@ -22,15 +22,15 @@ func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address 
 			s += " "
 		}
 	}
-	//fmt.Println(s)
+	fmt.Println(s)
 }
 
 func (gossiper *Gossiper) LogRumor(rumor *packets.RumorMessage, peerAddr string) {
-	/*fmt.Printf("RUMOR origin %s from %s ID %d contents %s\n",
+	fmt.Printf("RUMOR origin %s from %s ID %d contents %s\n",
 		rumor.Origin,
 		peerAddr,
 		rumor.ID,
-		rumor.Text)*/
+		rumor.Text)
 }
 
 func (gossiper *Gossiper) LogSimpleMessage(packet *packets.SimpleMessage) {
@@ -86,12 +86,11 @@ func (gossiper *Gossiper) LogMatch(reply *packets.SearchReply, result*packets.Se
 	for _, chunknb := range result.ChunkMap{
 		s += strconv.FormatUint(chunknb, 10) + ","
 	}
-	fmt.Println(result.ChunkMap)
 	s = s[:(len(s)-1)]
 	fmt.Printf("FOUND match %s at %s metafile=%s chunks=%s\n", 
 				result.FileName, 
 				reply.Origin, 
-				HexToString(result.MetaFileHash[:]),
+				HexToString(result.MetafileHash[:]),
 				s,
 			)
 

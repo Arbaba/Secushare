@@ -1,4 +1,4 @@
-package packets
+	package packets
 
 // GossipPacket : The only type of packets sent to other peers
 type GossipPacket struct {
@@ -47,7 +47,7 @@ type SearchReply struct {
 
 type SearchResult struct {
 	FileName string 
-	MetaFileHash []byte
+	MetafileHash []byte
 	ChunkMap []uint64
 	ChunkCount uint64
 }

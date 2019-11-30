@@ -208,7 +208,7 @@ func (gossiper *Gossiper) DownloadFoundFile(filename string) {
 			request := packets.DataRequest{Origin: gossiper.Name,
 				Destination: location,
 				HopLimit:    gossiper.HOPLIMIT,
-				HashValue:   fileMetaData.MetaFile[chunkNb*32 ][:],
+				HashValue:   fileMetaData.MetaFile[chunkNb][:],
 			}
 
 			go gossiper.SendDataRequest(request)

@@ -62,16 +62,18 @@ func main() {
 		} else if *msg != "" && allEmpty(dest, file, request){
 			simpleMsg.Text = *msg
 
-		}else if allNonEmpty(keywords, budget) && allEmpty(dest, file, request, msg){
+		}else if allNonEmpty(keywords) && allEmpty(dest, file, request, msg){
 			kw := strings.Split(*keywords, ",")
-			b , err := strconv.ParseUint(*budget, 10, 64)
-			if err  != nil {
-				panic(err)
+			if *budget != "" {
+				b , err := strconv.ParseUint(*budget, 10, 64)
+				if err != nil{
+					panic(err)
+				}
+				simpleMsg.Budget = &b
 
 			}
 
 			simpleMsg.Keywords = &kw
-			simpleMsg.Budget = &b
 		}else if allNonEmpty(file, request) && allEmpty(dest, msg, keywords, budget){
 			simpleMsg.File = file
 			b ,e:= hex.DecodeString(*request)

@@ -142,13 +142,8 @@ func (gossiper *Gossiper) ForwardSearchRequest(request *packets.SearchRequest){
 }
 
 
-func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesMatches map[string][]string){
-	var budget uint64
-	if tmpbudget == nil {
-		budget = uint64(2)
-	}else {
-		budget = *tmpbudget
-	}
+func (gossiper *Gossiper) SearchFile(keywords []string, budget uint64, filesMatches map[string][]string, doubleBudget bool){
+	
 
 	budgets := 	ProcessBudget(budget - 1, gossiper.GetAllOrigins())
 	fmt.Println("budgets", budgets)
@@ -167,9 +162,9 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 	for {
 		select {
 		case <-ticker.C:
-			if budget < 32 && tmpbudget == nil{
-				newbudget := *tmpbudget *uint64(2)
-				go gossiper.SearchFile(keywords, &newbudget, filesMatches)
+			if budget < 32 && doubleBudget{
+				newbudget := budget *uint64(2)
+				go gossiper.SearchFile(keywords, newbudget, filesMatches, doubleBudget)
 				return
 			}
 		case reply := <-gossiper.SearchChannel:
@@ -179,7 +174,7 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 			*/
 			for _, result:= range reply.Results{
 
-				hashstring := HexToString(result.MetaFileHash[:])
+				hashstring := HexToString(result.MetafileHash[:])
 				//Download the metafile if not found
 				gossiper.FilesInfoMux.Lock()
 				_, found:= gossiper.FilesInfo[hashstring]
@@ -208,8 +203,6 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 			for _,matchedPeers := range filesMatches{
 				nbMatches += len(matchedPeers)
 			}
-
-			fmt.Println(filesMatches, nbMatches)
 
 			if nbMatches >= 2{
 				fmt.Println("SEARCH FINISHED")
@@ -240,7 +233,6 @@ func (gossiper *Gossiper) SearchFilesLocally(req *packets.SearchRequest) packets
 	for metafileHash, fileInfo := range gossiper.FilesInfo {
 		for _, kw := range keywords {
 			match, _ := regexp.MatchString(fmt.Sprintf("[[:alpha:]]*%s[[:alpha:]]*", kw), fileInfo.FileName )
-			fmt.Println(kw, fileInfo.FileName, match)
 			if match {
 				var chunkMap []uint64
 				for idx, chunkHash := range fileInfo.MetaFile {
@@ -252,7 +244,7 @@ func (gossiper *Gossiper) SearchFilesLocally(req *packets.SearchRequest) packets
 				h,_ := hex.DecodeString(metafileHash)
 				searchResult := packets.SearchResult{
 					FileName: fileInfo.FileName,
-					MetaFileHash:h ,
+					MetafileHash:h ,
 					ChunkMap: chunkMap,
 					ChunkCount: uint64(len(fileInfo.MetaFile)),
 				}

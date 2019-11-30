@@ -108,7 +108,11 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			gossiper.ScanFile(*msg.File)
 
 		}else if msg.Keywords != nil {
-			gossiper.SearchFile(*msg.Keywords, msg.Budget, make(map[string][]string))
+			if msg.Budget != nil{
+				gossiper.SearchFile(*msg.Keywords, *msg.Budget , make(map[string][]string), false)
+			}else {
+				gossiper.SearchFile(*msg.Keywords, uint64(2), make(map[string][]string), true)
+			}
 		} else {
 			//RumorMongering
 			packet := packets.GossipPacket{
