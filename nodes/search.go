@@ -11,18 +11,43 @@ import (
 	"fmt"
 )
 
-
-
+//Mapping of filenames with the list of matching peers
 type Matches struct {
-	Results []packets.SearchResult
+	Locations map[string][]string
 	sync.Mutex
 }
+
 //Queue where all searches spend at most 0.5 seconds
 type SearchesQueue struct {
 	searches []packets.SearchRequest
 	sync.Mutex
 }
 
+func InitMatches(matches *Matches){
+	matches.Locations = make(map[string][]string)
+}
+
+func (matches * Matches) AddMatch(filename, origin string){
+	matches.Lock()
+	defer matches.Unlock()
+	locations := matches.Locations[filename]
+	if !Contains(locations, origin){
+		locations = append(locations, origin)
+	}
+	matches.Locations[filename] = locations 
+}
+
+func (matches *Matches) FindLocations(filename string)[]string{
+	matches.Lock()
+	defer matches.Unlock()
+	locations, found := matches.Locations[filename]
+	if found {
+		return locations	
+	}
+	var emptyslice []string
+	return emptyslice
+}
+ 
 func (queue *SearchesQueue) push(request packets.SearchRequest){
 	queue.Lock()
 	idx := len(queue.searches)
@@ -48,7 +73,7 @@ func (queue *SearchesQueue) pop(){
 	}
 	queue.searches = queue.searches[1:]
 }
-
+//Check that the request is not a duplicate
 func (queue *SearchesQueue) isValid(request packets.SearchRequest) bool{
 	queue.Lock()
 	defer queue.Unlock()
@@ -125,6 +150,7 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 	}
 
 	budgets := 	ProcessBudget(budget - 1, gossiper.GetAllOrigins())
+	fmt.Println("budgets", budgets)
 	for peerName, budget := range budgets {
 		searchReq := &packets.SearchRequest{
 			Origin: gossiper.Name, 
@@ -151,10 +177,19 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 			Maintain a map filename -> (map chunk -> list origins)	
 			*/
 			for _, result:= range reply.Results{
+
 				hashstring := HexToString(result.MetaFileHash[:])
+				//Download the metafile if not found
+				gossiper.FilesInfoMux.Lock()
+				if _, found:= gossiper.FilesInfo[hashstring]; !found{
+					gossiper.DownloadMetaFile(hashstring, reply.Origin, result.FileName) 
+				}
+				gossiper.FilesInfoMux.Unlock()
+
+				//detect match
 				if len(result.ChunkMap) == int(result.ChunkCount){
 					//check if the file was not already matched by the peer
-					if matchedPeers,found := filesMatches[result.FileName]; found {
+					if matchedPeers,found := filesMatches[hashstring]; found {
 						if !Contains(matchedPeers,reply.Origin){
 							filesMatches[hashstring] = append( matchedPeers,reply.Origin)
 						}
@@ -163,17 +198,18 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 						filesMatches[hashstring] = []string{reply.Origin}
 					}
 					gossiper.Matches.Lock()
-					gossiper.Matches.Results = append(gossiper.Matches.Results, *result)
+					gossiper.Matches.AddMatch(result.FileName, reply.Origin)
 					gossiper.Matches.Unlock()
 					gossiper.LogMatch(&reply, result)
 					
 				}
 			}
-
 			nbMatches := 0
 			for _,matchedPeers := range filesMatches{
-				if len(matchedPeers) > 0{nbMatches++}
+				nbMatches += len(matchedPeers)
 			}
+
+			fmt.Println(filesMatches, nbMatches)
 
 			if nbMatches >= 2{
 				fmt.Println("SEARCH FINISHED")

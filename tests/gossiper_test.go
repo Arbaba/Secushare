@@ -153,6 +153,24 @@ func TestProcessBudget(t *testing.T){
 	fmt.Println(nodes.ProcessBudget(12, []string{"A","B", "C","D","E"}))
 }
 
+func checkEqualArrays(t *testing.T, a, b []string){
+	assertEqual(t, len(a), len(b))
+	for idx, v := range a {
+		assertEqual(t, v, b[idx])
+	}
+}
+func TestMatches(t *testing.T){
+	var matches nodes.Matches
+	nodes.InitMatches(&matches)
+	matches.AddMatch("profile.jpg", "A")
+	matches.AddMatch("profile.jpg", "B")
+	matches.AddMatch("video.mp4", "A")
+
+	checkEqualArrays(t, matches.FindLocations("profile.jpg"), []string{"A","B"})
+	checkEqualArrays(t, matches.FindLocations("video.mp4"), []string{"A"})
+
+
+}
 /*
 func TestCompareStatusEqual(t *testing.T) {
 	status := []packets.PeerStatus{peerStatus("A", 1), peerStatus("B", 2)}

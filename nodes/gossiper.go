@@ -79,9 +79,8 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		DataBuffer: 	make(map[string]*chan packets.DataReply),
 		Files: 			make(map[string][]byte),
 		SearchChannel:	searchChannel,
-		//Matches:	matches,
-		
 	}
+	InitMatches(&gossiper.Matches)
 	return gossiper
 }
 
