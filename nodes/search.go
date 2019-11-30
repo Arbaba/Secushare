@@ -9,6 +9,7 @@ import (
 	"time"
 	"regexp"
 	"fmt"
+	"encoding/hex"
 )
 
 //Mapping of filenames with the list of matching peers
@@ -181,10 +182,11 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 				hashstring := HexToString(result.MetaFileHash[:])
 				//Download the metafile if not found
 				gossiper.FilesInfoMux.Lock()
-				if _, found:= gossiper.FilesInfo[hashstring]; !found{
+				_, found:= gossiper.FilesInfo[hashstring]
+				gossiper.FilesInfoMux.Unlock()
+				if !found{
 					gossiper.DownloadMetaFile(hashstring, reply.Origin, result.FileName) 
 				}
-				gossiper.FilesInfoMux.Unlock()
 
 				//detect match
 				if len(result.ChunkMap) == int(result.ChunkCount){
@@ -197,9 +199,7 @@ func (gossiper *Gossiper) SearchFile(keywords []string, tmpbudget *uint64,filesM
 					}else {
 						filesMatches[hashstring] = []string{reply.Origin}
 					}
-					gossiper.Matches.Lock()
 					gossiper.Matches.AddMatch(result.FileName, reply.Origin)
-					gossiper.Matches.Unlock()
 					gossiper.LogMatch(&reply, result)
 					
 				}
@@ -249,9 +249,10 @@ func (gossiper *Gossiper) SearchFilesLocally(req *packets.SearchRequest) packets
 						chunkMap = append(chunkMap, uint64(idx))
 					}
 				}
+				h,_ := hex.DecodeString(metafileHash)
 				searchResult := packets.SearchResult{
 					FileName: fileInfo.FileName,
-					MetaFileHash: []byte(metafileHash),
+					MetaFileHash:h ,
 					ChunkMap: chunkMap,
 					ChunkCount: uint64(len(fileInfo.MetaFile)),
 				}

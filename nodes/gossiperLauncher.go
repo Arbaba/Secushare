@@ -90,6 +90,9 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		if msg.Destination != nil && msg.File != nil && msg.Request != nil {
 			dataReply, filemetadata := gossiper.DownloadMetaFile(HexToString(*msg.Request), *msg.Destination, *msg.File)
 			gossiper.DownloadFile(dataReply, filemetadata)
+		}else if msg.File != nil && msg.Request != nil {
+			//TODO: check request
+			gossiper.DownloadFoundFile(*msg.File)
 		} else if msg.Destination != nil {
 
 			privatemsg := &packets.PrivateMessage{
@@ -242,7 +245,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 
 	}else if searchRequest := packet.SearchRequest; searchRequest != nil {
-		fmt.Println(*searchRequest)
 		gossiper.UpdateRouting(searchRequest.Origin, peerAddr, 0)
 		reply := gossiper.SearchFilesLocally(searchRequest)
 		if len(reply.Results) > 0 {

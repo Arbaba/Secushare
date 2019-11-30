@@ -72,7 +72,14 @@ func main() {
 
 			simpleMsg.Keywords = &kw
 			simpleMsg.Budget = &b
-		
+		}else if allNonEmpty(file, request) && allEmpty(dest, msg, keywords, budget){
+			simpleMsg.File = file
+			b ,e:= hex.DecodeString(*request)
+			if e != nil {
+				fmt.Println("Unable to decoded hex hash")
+				os.Exit(1)
+			}
+			simpleMsg.Request = &b		
 		}else {
 			fmt.Println("ERROR (Bad argument combination)")
 			return

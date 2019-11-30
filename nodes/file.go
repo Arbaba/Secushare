@@ -183,65 +183,74 @@ func (gossiper * Gossiper) GetChunk(hash string) ([]byte, bool){
 	data, found := gossiper.Files[hash] 
 	return data, found	
 }
-/*
+
 // TODO: Merge or modularize download functions when you have enough time,
 func (gossiper *Gossiper) DownloadFoundFile(filename string) {
 	
 	var fileData []byte
 	fileMetaData, metahash,  found := gossiper.FindFileInfo(filename)
+	
 	if !found{
+		fmt.Println("Metafile for ",filename ,"not found")
 		return
 	}
-	metafileData, found := gossiper.GetChunk(metahash)
-	
-	for chunkNb := 0; chunkNb < len(metafileData)/32; chunkNb++ {
-		fmt.Printf("DOWNLOADING %s chunk %d from %s\n", fileMetaData.FileName, chunkNb, metafileReply.Origin)
+	//metafileData, found := gossiper.GetChunk(metahash)
+	fileLocations := gossiper.Matches.FindLocations(filename)
+	if len(fileLocations) == 0 {
+		fmt.Println("No location found for ", filename)
+		return
+	} 
+	fmt.Println("metafile data ", len(fileMetaData.MetaFile), metahash)
+	for chunkNb := 0; chunkNb < len(fileMetaData.MetaFile); chunkNb++ {
+		for _, location := range fileLocations{
+			fmt.Printf("DOWNLOADING %s chunk %d from %s\n", fileMetaData.FileName, chunkNb, location)
 
-	nextChunkidx := (chunkNb + 1) * 32
-	request := packets.DataRequest{Origin: gossiper.Name,
-		Destination: metafileReply.Origin,
-		HopLimit:    gossiper.HOPLIMIT,
-		HashValue:   metafileReply.Data[chunkNb*32 : nextChunkidx],
-	}
-
-	go gossiper.SendDataRequest(request)
-	ticker := time.NewTicker(time.Second * time.Duration(5))
-	defer ticker.Stop()
-
-	chunkReceiver := make(chan packets.DataReply)
-	gossiper.DataBufferMux.Lock()
-	chunkHash := HexToString(fileMetaData.MetaFile[chunkNb][:])
-	gossiper.DataBuffer[chunkHash] = &chunkReceiver
-	gossiper.DataBufferMux.Unlock()
-
-	func () {
-		for {
-
-			select {
-			case chunkReply := <-chunkReceiver:
-				if CheckChunk(chunkReply.Data, chunkNb, fileMetaData) {
-					gossiper.FilesMux.Lock()
-					gossiper.Files[chunkHash] =  chunkReply.Data[:]
-					fileData = append(fileData, chunkReply.Data[:]...)
-					gossiper.FilesMux.Unlock()
-					return
-				} else if len(chunkReply.Data) == 0{
-					fmt.Println("Empty chunk download")
-					return
-					//gossiper.SendDataRequest(request)
-				}
-			case <-ticker.C:
-				gossiper.SendDataRequest(request)
+			request := packets.DataRequest{Origin: gossiper.Name,
+				Destination: location,
+				HopLimit:    gossiper.HOPLIMIT,
+				HashValue:   fileMetaData.MetaFile[chunkNb*32 ][:],
 			}
+
+			go gossiper.SendDataRequest(request)
+			ticker := time.NewTicker(time.Second * time.Duration(5))
+			defer ticker.Stop()
+
+			chunkReceiver := make(chan packets.DataReply)
+			gossiper.DataBufferMux.Lock()
+			chunkHash := HexToString(fileMetaData.MetaFile[chunkNb][:])
+			gossiper.DataBuffer[chunkHash] = &chunkReceiver
+			gossiper.DataBufferMux.Unlock()
+
+			success := func () bool {
+				for {
+
+					select {
+					case chunkReply := <-chunkReceiver:
+						if CheckChunk(chunkReply.Data, chunkNb, fileMetaData) {
+							gossiper.FilesMux.Lock()
+							gossiper.Files[chunkHash] =  chunkReply.Data[:]
+							fileData = append(fileData, chunkReply.Data[:]...)
+							gossiper.FilesMux.Unlock()
+							return true
+						} else if len(chunkReply.Data) == 0{
+							fmt.Println("Empty chunk download")
+							return false
+							//gossiper.SendDataRequest(request)
+						}
+					case <-ticker.C:
+						gossiper.SendDataRequest(request)
+					}
+				}
+			}()
+			if success {break}
 		}
-	}()
 
 }
 //fmt.Printf(" file data %x", fileData)
 fileMetaData.FileSize = uint32(len(fileData))
 gossiper.StoreFile(fileData, fileMetaData)
 
-}*/
+}
 func (gossiper *Gossiper) StoreFile(data []byte, filemetadata *FileMetaData) {
 	f, err := os.Create(fmt.Sprintf("_Downloads/%s", filemetadata.FileName))
 	check(err)
