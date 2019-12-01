@@ -22,7 +22,7 @@ type Gossiper struct {
 	Peers           []string
 	SimpleMode      bool
 	StatusPacket    packets.StatusPacket
-	RumorsReceived  map[string][]*packets.RumorMessage     //All rumors received, indexed by origin and sorted by ID
+	RumorsReceived  map[string][]packets.Rumorable     //All rumors received, indexed by origin and sorted by ID
 	AcksChannels    map[string]*chan *packets.StatusPacket //Channels to communicate with the right ACK callback
 	VectorClock     map[string]*packets.PeerStatus         //Gossiper Status
 	AntiEntropy     int64
@@ -68,7 +68,7 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		Name:           namee,
 		Peers:          peers,
 		SimpleMode:     simpleMode,
-		RumorsReceived: make(map[string][]*packets.RumorMessage),
+		RumorsReceived: make(map[string][]packets.Rumorable),
 		AcksChannels:   make(map[string]*chan *packets.StatusPacket),
 		VectorClock:    make(map[string]*packets.PeerStatus),
 		AntiEntropy:    antiEntropy,
@@ -168,6 +168,7 @@ func (gossiper *Gossiper) StoreLastPacket(packet packets.GossipPacket) {
 func (gossiper *Gossiper) GetLastRumorsSince(idx int) []packets.RumorMessage {
 	gossiper.LastPacketsMux.Lock()
 	defer gossiper.LastPacketsMux.Unlock()
+	//refactor
 	var copy []packets.RumorMessage = nil
 	if idx < len(gossiper.LastPackets) && len(gossiper.LastPackets) > 0 || idx == 0 {
 
@@ -190,17 +191,17 @@ func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
 	if rumor := packet.Rumor; rumor != nil {
 		gossiper.rumorsMux.Lock()
 
-		list := make([]*packets.RumorMessage, len(gossiper.RumorsReceived[rumor.Origin]))
-		copy(list, gossiper.RumorsReceived[rumor.Origin])
+		list := make([]packets.Rumorable, len(gossiper.RumorsReceived[rumor.GetOrigin()]))
+		copy(list, gossiper.RumorsReceived[rumor.GetOrigin()])
 
-		id := rumor.ID
+		id := rumor.GetID()
 		idx := sort.Search(len(list), func(i int) bool {
-			return list[i].ID > id
+			return list[i].GetID() > id
 		})
 		if idx < len(list) {
-			gossiper.RumorsReceived[rumor.Origin] = append(append(gossiper.RumorsReceived[rumor.Origin][:idx], rumor), list[idx:]...)
+			gossiper.RumorsReceived[rumor.GetOrigin()] = append(append(gossiper.RumorsReceived[rumor.GetOrigin()][:idx], rumor), list[idx:]...)
 		} else {
-			gossiper.RumorsReceived[rumor.Origin] = append(list, rumor)
+			gossiper.RumorsReceived[rumor.GetOrigin()] = append(list, rumor)
 
 		}
 		gossiper.rumorsMux.Unlock()
@@ -212,14 +213,14 @@ func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
 }
 
 //Update the vector clock. Add Status or update nextID
-func (gossiper *Gossiper) UpdateVectorClock(rumor *packets.RumorMessage) {
+func (gossiper *Gossiper) UpdateVectorClock(rumor packets.Rumorable) {
 	gossiper.VectorClockMux.Lock()
 	defer gossiper.VectorClockMux.Unlock()
-	status, found := gossiper.VectorClock[rumor.Origin]
-	if found && rumor.ID == status.NextID {
-		status.NextID = rumor.ID + 1
+	status, found := gossiper.VectorClock[rumor.GetOrigin()]
+	if found && rumor.GetID() == status.NextID {
+		status.NextID = rumor.GetID() + 1
 		for {
-			nextrumor := gossiper.GetRumor(rumor.Origin, status.NextID)
+			nextrumor := gossiper.GetRumor(rumor.GetOrigin(), status.NextID)
 			if nextrumor != nil {
 				status.NextID += 1
 			} else {
@@ -229,23 +230,23 @@ func (gossiper *Gossiper) UpdateVectorClock(rumor *packets.RumorMessage) {
 	} else if !found {
 
 		nextID := uint32(1)
-		if rumor.ID == nextID {
+		if rumor.GetID() == nextID {
 			nextID += 1
 		}
-		status = &packets.PeerStatus{Identifier: rumor.Origin, NextID: nextID}
-		gossiper.VectorClock[rumor.Origin] = status
+		status = &packets.PeerStatus{Identifier: rumor.GetOrigin(), NextID: nextID}
+		gossiper.VectorClock[rumor.GetOrigin()] = status
 	}
 }
 
 //Returns the rumor
-func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessage {
+func (gossiper *Gossiper) GetRumor(origin string, id uint32) packets.Rumorable {
 	gossiper.rumorsMux.Lock()
 	defer gossiper.rumorsMux.Unlock()
 	list := gossiper.RumorsReceived[origin]
 	idx := sort.Search(len(list), func(i int) bool {
-		return list[i].ID >= id
+		return list[i].GetID() >= id
 	})
-	if idx < len(list) && list[idx].ID == id {
+	if idx < len(list) && list[idx].GetID() == id {
 		return list[idx]
 	}
 	return nil
@@ -254,12 +255,15 @@ func (gossiper *Gossiper) GetRumor(origin string, id uint32) *packets.RumorMessa
 
 //Returns a GossipPacket with the rumor
 func (gossiper *Gossiper) GetRumorPacket(origin string, id uint32) *packets.GossipPacket {
-	rumor := gossiper.GetRumor(origin, id)
-	if rumor != nil {
-		return &packets.GossipPacket{Rumor: gossiper.GetRumor(origin, id)}
+	rumorable := gossiper.GetRumor(origin, id)
+	if rumorable != nil {
+		if 	rumor, ok := rumorable.(*packets.RumorMessage);	ok {
+			return &packets.GossipPacket{Rumor: rumor}
+		}else if tlcmsg, ok := rumorable.(*packets.TLCMessage); ok {
+			return &packets.GossipPacket{TLCMessage: tlcmsg}
+		}
 	}
 	return nil
-
 }
 
 func (gossiper *Gossiper) GetNextRumorID(origin string) uint32 {
@@ -271,12 +275,12 @@ func (gossiper *Gossiper) GetNextRumorID(origin string) uint32 {
 	} else {
 		prevID := uint32(0)
 		for _, rumor := range rumors {
-			if rumor.ID != uint32(prevID+1) {
+			if rumor.GetID() != uint32(prevID+1) {
 				return prevID + 1
 			}
 			prevID += 1
 		}
-		return rumors[len(rumors)-1].ID + 1
+		return rumors[len(rumors)-1].GetID() + 1
 	}
 }
 

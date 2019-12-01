@@ -16,17 +16,22 @@ func (gossiper *Gossiper) AckID(identifier string, nextID uint32, senderAddress 
 }
 
 func (gossiper *Gossiper) RumorMonger(rumorpkt *packets.GossipPacket, exceptIP string) string {
-	rumor := rumorpkt.Rumor
-	gossiper.UpdateVectorClock(rumor)
+	var rumorable packets.Rumorable
+	if rumorpkt.Rumor != nil {
+		rumorable = rumorpkt.Rumor
+	}else if rumorpkt.TLCMessage != nil {
+		rumorable = rumorpkt.TLCMessage
+	}
+	gossiper.UpdateVectorClock(rumorable)
 
 	target := gossiper.SendPacketRandomExcept(*rumorpkt, exceptIP)
 	if target != "" {
 		ackChannel := make(chan *packets.StatusPacket)
-		ackID := gossiper.AckID(rumor.Origin, rumor.ID+uint32(1), target)
+		ackID := gossiper.AckID(rumorable.GetOrigin(), rumorable.GetID()+uint32(1), target)
 		gossiper.AcksChannelsMux.Lock()
 		gossiper.AcksChannels[ackID] = &ackChannel
 		gossiper.AcksChannelsMux.Unlock()
-		go gossiper.WaitForAck(ackID, target, rumor.ID)
+		go gossiper.WaitForAck(ackID, target, rumorable.GetID())
 		gossiper.LogMongering(target)
 	}
 	return target
@@ -132,7 +137,7 @@ func (gossiper *Gossiper) AckRandomStatusPkt(statuspkt *packets.StatusPacket, pe
 			randomRumoridx := rand.Intn(len(v))
 			for idx, rumor := range gossiper.RumorsReceived[k] {
 				if idx == randomRumoridx {
-					gossiper.AckStatus(statuspkt, rumor.Origin, peerAddr, rumor.ID)
+					gossiper.AckStatus(statuspkt, rumor.GetOrigin(), peerAddr, rumor.GetID())
 				}
 			}
 		}

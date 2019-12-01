@@ -68,6 +68,7 @@ type BlockPublish struct {
 	Transaction TxPublish
 }
 
+
 type TLCMessage struct{
 	Origin string
 	ID uint32
@@ -75,6 +76,23 @@ type TLCMessage struct{
 	TxBlock BlockPublish
 	VectorClock *StatusPacket
 	Fitness		float32
+}
+
+func (tlcMsg *TLCMessage) GetOrigin() string {
+	return tlcMsg.Origin
+}
+
+func (tlcMsg *TLCMessage) GetID() uint32 {
+	return tlcMsg.ID
+}
+
+
+func (tlcMsg *TLCMessage) IsRumor() bool {
+	return false
+}
+
+func (tlcMsg *TLCMessage) IsTLCMsg() bool {
+	return true
 }
 
 type TLCAck PrivateMessage
