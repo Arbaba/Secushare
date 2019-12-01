@@ -44,7 +44,7 @@ func listenClient(gossiper *Gossiper) {
 	conn := gossiper.ClientConn
 	defer conn.Close()
 	for {
-		message := make([]byte, 1 << 13)
+		message := make([]byte, 1<<13)
 		rlen, _, err := conn.ReadFromUDP(message[:])
 		if err != nil {
 			panic(err)
@@ -57,7 +57,7 @@ func listenGossip(gossiper *Gossiper) {
 	conn := gossiper.GossipConn
 	defer conn.Close()
 	for {
-		message := make([]byte, 1 << 14)
+		message := make([]byte, 1<<14)
 		rlen, raddr, err := conn.ReadFromUDP(message[:])
 		if err != nil {
 			panic(err)
@@ -90,7 +90,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 		if msg.Destination != nil && msg.File != nil && msg.Request != nil {
 			dataReply, filemetadata := gossiper.DownloadMetaFile(HexToString(*msg.Request), *msg.Destination, *msg.File)
 			gossiper.DownloadFile(dataReply, filemetadata)
-		}else if msg.File != nil && msg.Request != nil {
+		} else if msg.File != nil && msg.Request != nil {
 			//TODO: check request
 			gossiper.DownloadFoundFile(*msg.File)
 		} else if msg.Destination != nil {
@@ -106,11 +106,18 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			gossiper.StorePrivateMsg(privatemsg)
 		} else if msg.File != nil {
 			gossiper.ScanFile(*msg.File)
-
-		}else if msg.Keywords != nil {
-			if msg.Budget != nil{
-				gossiper.SearchFile(*msg.Keywords, *msg.Budget , make(map[string][]string), false)
-			}else {
+			TLCMessage := packets.TLCMessage{
+				Origin:      gossiper.Name,
+				ID:          gossiper.GetNextRumorID(gossiper.Name),
+				Confirmed:   -1,
+				TxBlock:     packets.BlockPublish{},
+				VectorClock: nil,
+				Fitness:     0,
+			}
+		} else if msg.Keywords != nil {
+			if msg.Budget != nil {
+				gossiper.SearchFile(*msg.Keywords, *msg.Budget, make(map[string][]string), false)
+			} else {
 				gossiper.SearchFile(*msg.Keywords, uint64(2), make(map[string][]string), true)
 			}
 		} else {
@@ -165,8 +172,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.StoreRumor(packet)
 		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, peerAddr)
 		gossiper.RumorMonger(&packet, peerAddr)
-	}else if tlcMessage := packet.TLCMessage; tlcMessage != nil {
-		
+	} else if tlcMessage := packet.TLCMessage; tlcMessage != nil {
+
 	} else if packet.StatusPacket != nil {
 		gossiper.LogStatusPacket(packet.StatusPacket, peerAddr)
 		gossiper.AddPeer(peerAddr)
@@ -201,22 +208,22 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		if reply.Destination != gossiper.Name && reply.HopLimit > 0 {
 			reply.HopLimit -= 1
 			gossiper.SendDirect(packet, reply.Destination)
-		}else {
+		} else {
 			gossiper.DataBufferMux.Lock()
- 			channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
+			channel, found := gossiper.DataBuffer[HexToString(packet.DataReply.HashValue)]
 			gossiper.DataBufferMux.Unlock()
 			if found {
-				
+
 				*channel <- *reply
-			}	
+			}
 		}
-		
+
 	} else if request := packet.DataRequest; request != nil {
 		//fmt.Println(request.Origin, request.Destination, request.HopLimit)
 		if request.Destination != gossiper.Name && request.HopLimit > 0 {
 			request.HopLimit -= 1
 			gossiper.SendDirect(packet, request.Destination)
-		} else if request.Destination == gossiper.Name{
+		} else if request.Destination == gossiper.Name {
 
 			reply := packets.DataReply{Origin: gossiper.Name,
 				Destination: request.Origin,
@@ -224,7 +231,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			}
 			reply.HashValue = []byte(request.HashValue)
 			pkt := packets.GossipPacket{DataReply: &reply}
-
 
 			gossiper.FilesInfoMux.Lock()
 			hashString := HexToString(request.HashValue)
@@ -245,11 +251,10 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 			}
 			gossiper.SendDirect(pkt, reply.Destination)
-			
 
 		}
 
-	}else if searchRequest := packet.SearchRequest; searchRequest != nil {
+	} else if searchRequest := packet.SearchRequest; searchRequest != nil {
 		gossiper.UpdateRouting(searchRequest.Origin, peerAddr, 0)
 		reply := gossiper.SearchFilesLocally(searchRequest)
 		if len(reply.Results) > 0 {
@@ -258,15 +263,15 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 		fmt.Println(reply.Results)
 		gossiper.ForwardSearchRequest(searchRequest)
-	}else if searchReply:= packet.SearchReply; searchReply != nil {
+	} else if searchReply := packet.SearchReply; searchReply != nil {
 		fmt.Println(*searchReply)
 		gossiper.UpdateRouting(searchReply.Origin, peerAddr, 0)
-		if searchReply.Destination == gossiper.Name{
+		if searchReply.Destination == gossiper.Name {
 			gossiper.SearchChannel <- *searchReply
-		}else if searchReply.HopLimit > 0{
+		} else if searchReply.HopLimit > 0 {
 			searchReply.HopLimit -= 1
 			gossiper.SendDirect(packet, searchReply.Destination)
 		}
-		
+
 	}
 }
