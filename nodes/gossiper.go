@@ -36,7 +36,9 @@ type Gossiper struct {
 
 	DataBuffer		map[string]*chan packets.DataReply//Used to redirect datareplies to the right goroutine (see DownloadFile & DownloadMetafile)
 	Files			map[string][]byte//The actual files contents indexed by chunk hash
-	SearchChannel	chan packets.SearchReply	
+	SearchChannel	chan packets.SearchReply
+	NetworkSize	 	int64	
+	StubbornTimeout int64
 	Matches			Matches
 	PeersMux		sync.Mutex
 	rumorsMux       sync.Mutex
@@ -50,7 +52,7 @@ type Gossiper struct {
 	DataBufferMux 	sync.Mutex
 }
 
-func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64) *Gossiper {
+func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64 , networksize int64, stubbornTimeout int64) *Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
 
@@ -79,6 +81,8 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		DataBuffer: 	make(map[string]*chan packets.DataReply),
 		Files: 			make(map[string][]byte),
 		SearchChannel:	searchChannel,
+		NetworkSize:	networksize,
+		StubbornTimeout: stubbornTimeout,
 	}
 	InitMatches(&gossiper.Matches)
 	return gossiper
@@ -152,7 +156,7 @@ func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, ex
 
 //Store all Messages packets received in order. Used to supply the GUI. Discard statuses
 func (gossiper *Gossiper) StoreLastPacket(packet packets.GossipPacket) {
-	if gossiper.SimpleMode && packet.Simple != nil || !gossiper.SimpleMode && packet.Rumor != nil {
+	if gossiper.SimpleMode && packet.Simple != nil || !gossiper.SimpleMode && (packet.Rumor != nil ||packet.TLCMessage !=nil) {
 		gossiper.LastPacketsMux.Lock()
 		defer gossiper.LastPacketsMux.Unlock()
 		gossiper.LastPackets = append(gossiper.LastPackets, packet)

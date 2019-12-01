@@ -165,7 +165,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.StoreRumor(packet)
 		gossiper.SendPacket(packets.GossipPacket{StatusPacket: gossiper.GetStatusPacket()}, peerAddr)
 		gossiper.RumorMonger(&packet, peerAddr)
-
+	}else if tlcMessage := packet.TLCMessage; tlcMessage != nil {
+		
 	} else if packet.StatusPacket != nil {
 		gossiper.LogStatusPacket(packet.StatusPacket, peerAddr)
 		gossiper.AddPeer(peerAddr)
