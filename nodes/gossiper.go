@@ -38,6 +38,8 @@ type Gossiper struct {
 	SearchChannel   chan packets.SearchReply
 	NetworkSize     int64
 	StubbornTimeout int64
+	RoundTable      RoundTable
+	RoundState      RoundState
 	AcksReceived    AcksReceived
 	Matches         Matches
 	PeersMux        sync.Mutex
@@ -84,6 +86,7 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		NetworkSize:     networksize,
 		StubbornTimeout: stubbornTimeout,
 		AcksReceived:    *CreateAcksReceived(),
+		RoundTable:      *CreateRoundTable(),
 	}
 	InitMatches(&gossiper.Matches)
 	return gossiper

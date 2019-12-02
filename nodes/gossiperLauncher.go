@@ -105,22 +105,28 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			gossiper.SendPrivateMsg(privatemsg)
 			gossiper.StorePrivateMsg(privatemsg)
 		} else if msg.File != nil {
-			name, size, metahash := gossiper.ScanFile(*msg.File)
-			TLCMessage := packets.TLCMessage{
-				Origin:    gossiper.Name,
-				ID:        gossiper.GetNextRumorID(gossiper.Name),
-				Confirmed: -1,
-				TxBlock: packets.BlockPublish{
-					Transaction: packets.TxPublish{Name: name, Size: size, MetafileHash: metahash},
-				},
-				VectorClock: gossiper.GetStatusPacket(),
-				Fitness:     0,
+			if !gossiper.RoundState.HasSentFirst() {
+				gossiper.RoundState.SetFirstSent()
+				name, size, metahash := gossiper.ScanFile(*msg.File)
+				TLCMessage := packets.TLCMessage{
+					Origin:    gossiper.Name,
+					ID:        gossiper.GetNextRumorID(gossiper.Name),
+					Confirmed: -1,
+					TxBlock: packets.BlockPublish{
+						Transaction: packets.TxPublish{Name: name, Size: size, MetafileHash: metahash},
+					},
+					VectorClock: gossiper.GetStatusPacket(),
+					Fitness:     0,
+				}
+				packet := packets.GossipPacket{TLCMessage: &TLCMessage}
+				gossiper.StoreLastPacket(packet)
+				gossiper.StoreRumor(packet)
+				fmt.Println(gossiper.RumorMonger(&packet, gossiper.RelayAddress()))
+				go gossiper.Stubborn(&TLCMessage)
+
+			} else {
+				//buffer
 			}
-			packet := packets.GossipPacket{TLCMessage: &TLCMessage}
-			gossiper.StoreLastPacket(packet)
-			gossiper.StoreRumor(packet)
-			fmt.Println(gossiper.RumorMonger(&packet, gossiper.RelayAddress()))
-			go gossiper.Stubborn(&TLCMessage)
 		} else if msg.Keywords != nil {
 			if msg.Budget != nil {
 				gossiper.SearchFile(*msg.Keywords, *msg.Budget, make(map[string][]string), false)
@@ -290,7 +296,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			return
 		}
 		gossiper.UpdateRouting(tlc.Origin, peerAddr, tlc.ID)
-
+		gossiper.RoundTable.Increment(tlc.Origin)
 		gossiper.LogTLC(tlc)
 
 		gossiper.StoreLastPacket(packet)
@@ -306,6 +312,7 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.AcksReceived.Add(tlcAck)
 		witnesses := gossiper.AcksReceived.Witnesses(tlcAck.ID)
 		if len(witnesses) >= int(gossiper.NetworkSize/2) {
+			gossiper.RoundState.SetMajority()
 			tlc := gossiper.GetRumor(gossiper.Name, tlcAck.ID)
 			v, ok := tlc.(*packets.TLCMessage)
 			fmt.Println(v, ok)

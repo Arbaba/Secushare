@@ -31,6 +31,90 @@ func CreateAcksReceived() *AcksReceived {
 	return &v
 }
 
+type RoundTable struct {
+	sync.Mutex
+	table map[string]int
+}
+
+func CreateRoundTable() *RoundTable {
+	var t RoundTable
+	t.table = make(map[string]int)
+	return &t
+}
+
+func (table *RoundTable) Increment(origin string) {
+	table.Lock()
+	defer table.Unlock()
+	table.table[origin] += 1
+}
+
+func (table *RoundTable) GetRound(origin string) int {
+	table.Lock()
+	defer table.Unlock()
+	return table.table[origin]
+}
+
+type RoundState struct {
+	sync.Mutex
+	sentFirst bool //Indicates if the client sent a fist gossip with confirmation
+	round     int  //Current node Round number
+	majority  bool //Tells whether the majority of confirmed messages has been collected during the current round
+	sent      bool //Tells wheter  the node has sent a message during the current round
+}
+
+func (state *RoundState) SetFirstSent() {
+	state.Lock()
+	defer state.Unlock()
+	state.sentFirst = true
+}
+func (state *RoundState) HasSentFirst() bool {
+	state.Lock()
+	defer state.Unlock()
+	return state.sentFirst
+}
+
+func (state *RoundState) SetMajority() {
+	state.Lock()
+	defer state.Unlock()
+	state.majority = true
+}
+
+func (state *RoundState) HasMajority() bool {
+	state.Lock()
+	defer state.Unlock()
+	return state.majority
+}
+
+func (state *RoundState) SetSent() {
+	state.Lock()
+	defer state.Unlock()
+	state.sent = true
+}
+
+func (state *RoundState) HasSent() bool {
+	state.Lock()
+	defer state.Unlock()
+	return state.sent
+}
+
+func (state *RoundState) IsRoundComplete() bool {
+	state.Lock()
+	defer state.Unlock()
+	return state.majority && state.sent
+}
+
+func (state *RoundState) AdvanceRound() bool {
+	state.Lock()
+	defer state.Unlock()
+	if state.majority && state.sent {
+		state.round += 1
+		state.majority = false
+		state.sent = false
+		return true
+	} else {
+		return false
+	}
+}
 func (gossiper *Gossiper) Stubborn(tlcMessage *packets.TLCMessage) {
 	if gossiper.StubbornTimeout <= 0 {
 		return
