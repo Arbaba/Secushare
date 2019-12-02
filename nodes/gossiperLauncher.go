@@ -306,9 +306,11 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			}
 
 		} else {
-			//gossiper.RoundState.SetMajority()
-
 			gossiper.RoundState.RecordTLCMessage(tlc)
+
+			if len(gossiper.RoundState.RoundTLCMessages(gossiper.RoundState.GetRound())) >= int(gossiper.NetworkSize/2) {
+				gossiper.RoundState.SetMajority()
+			}
 
 		}
 	} else if tlcAck := packet.Ack; tlcAck != nil {
@@ -318,10 +320,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		if len(witnesses) >= int(gossiper.NetworkSize/2) {
 			tlc := gossiper.GetRumor(gossiper.Name, tlcAck.ID)
 			v, ok := tlc.(*packets.TLCMessage)
-			fmt.Println(v, ok)
-
-			fmt.Println(v, ok)
 			if ok {
+				//should be able to stop it
 				gossiper.ConfirmAndBroadcast(*v, witnesses)
 			}
 		}
