@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"sort"
 	"strings"
 	"sync"
 
@@ -14,45 +13,46 @@ import (
 
 // Gossiper : Represents the gossiper
 type Gossiper struct {
-	GossipAddr      *net.UDPAddr
-	GossipConn      *net.UDPConn
-	ClientAddr      *net.UDPAddr
-	ClientConn      *net.UDPConn
-	Name            string
-	Peers           []string
-	SimpleMode      bool
-	StatusPacket    packets.StatusPacket
-	RumorsReceived  map[string][]packets.Rumorable     //All rumors received, indexed by origin and sorted by ID
-	AcksChannels    map[string]*chan *packets.StatusPacket //Channels to communicate with the right ACK callback
-	VectorClock     map[string]*packets.PeerStatus         //Gossiper Status
-	AntiEntropy     int64
-	LastPackets     []packets.GossipPacket
-	GUIPort         string //Must be non nil to active the server
-	RoutingTable    map[string]string
-	Rtimer          int64
-	PrivateMsgs     map[string][]*packets.PrivateMessage
-	HOPLIMIT		uint32
-	FilesInfo 			map[string]*FileMetaData //files indexed by Metahash string
+	GossipAddr     *net.UDPAddr
+	GossipConn     *net.UDPConn
+	ClientAddr     *net.UDPAddr
+	ClientConn     *net.UDPConn
+	Name           string
+	Peers          []string
+	SimpleMode     bool
+	StatusPacket   packets.StatusPacket
+	RumorsReceived map[string][]packets.Rumorable         //All rumors received, indexed by origin and sorted by ID
+	AcksChannels   map[string]*chan *packets.StatusPacket //Channels to communicate with the right ACK callback
+	VectorClock    map[string]*packets.PeerStatus         //Gossiper Status
+	AntiEntropy    int64
+	LastPackets    []packets.GossipPacket
+	GUIPort        string //Must be non nil to active the server
+	RoutingTable   map[string]string
+	Rtimer         int64
+	PrivateMsgs    map[string][]*packets.PrivateMessage
+	HOPLIMIT       uint32
+	FilesInfo      map[string]*FileMetaData //files indexed by Metahash string
 
-	DataBuffer		map[string]*chan packets.DataReply//Used to redirect datareplies to the right goroutine (see DownloadFile & DownloadMetafile)
-	Files			map[string][]byte//The actual files contents indexed by chunk hash
-	SearchChannel	chan packets.SearchReply
-	NetworkSize	 	int64	
+	DataBuffer      map[string]*chan packets.DataReply //Used to redirect datareplies to the right goroutine (see DownloadFile & DownloadMetafile)
+	Files           map[string][]byte                  //The actual files contents indexed by chunk hash
+	SearchChannel   chan packets.SearchReply
+	NetworkSize     int64
 	StubbornTimeout int64
-	Matches			Matches
-	PeersMux		sync.Mutex
+	AcksReceived    AcksReceived
+	Matches         Matches
+	PeersMux        sync.Mutex
 	rumorsMux       sync.Mutex
 	AcksChannelsMux sync.Mutex
 	VectorClockMux  sync.Mutex
 	LastPacketsMux  sync.Mutex
 	RoutingTableMux sync.Mutex
 	PrivateMsgsMux  sync.Mutex
-	FilesInfoMux	sync.Mutex
-	FilesMux		sync.Mutex
-	DataBufferMux 	sync.Mutex
+	FilesInfoMux    sync.Mutex
+	FilesMux        sync.Mutex
+	DataBufferMux   sync.Mutex
 }
 
-func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64 , networksize int64, stubbornTimeout int64) *Gossiper {
+func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64, networksize int64, stubbornTimeout int64) *Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
 
@@ -61,28 +61,29 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 	searchChannel := make(chan packets.SearchReply, 100)
 
 	gossiper := &Gossiper{
-		GossipAddr:     gossipAddr,
-		GossipConn:     gossipConn,
-		ClientAddr:     clientAddr,
-		ClientConn:     clientConn,
-		Name:           namee,
-		Peers:          peers,
-		SimpleMode:     simpleMode,
-		RumorsReceived: make(map[string][]packets.Rumorable),
-		AcksChannels:   make(map[string]*chan *packets.StatusPacket),
-		VectorClock:    make(map[string]*packets.PeerStatus),
-		AntiEntropy:    antiEntropy,
-		GUIPort:        guiPort,
-		RoutingTable:   make(map[string]string),
-		Rtimer:         rtimer,
-		PrivateMsgs:    make(map[string][]*packets.PrivateMessage),
-		HOPLIMIT:		uint32(9),
-		FilesInfo: 			make(map[string]*FileMetaData),
-		DataBuffer: 	make(map[string]*chan packets.DataReply),
-		Files: 			make(map[string][]byte),
-		SearchChannel:	searchChannel,
-		NetworkSize:	networksize,
+		GossipAddr:      gossipAddr,
+		GossipConn:      gossipConn,
+		ClientAddr:      clientAddr,
+		ClientConn:      clientConn,
+		Name:            namee,
+		Peers:           peers,
+		SimpleMode:      simpleMode,
+		RumorsReceived:  make(map[string][]packets.Rumorable),
+		AcksChannels:    make(map[string]*chan *packets.StatusPacket),
+		VectorClock:     make(map[string]*packets.PeerStatus),
+		AntiEntropy:     antiEntropy,
+		GUIPort:         guiPort,
+		RoutingTable:    make(map[string]string),
+		Rtimer:          rtimer,
+		PrivateMsgs:     make(map[string][]*packets.PrivateMessage),
+		HOPLIMIT:        uint32(9),
+		FilesInfo:       make(map[string]*FileMetaData),
+		DataBuffer:      make(map[string]*chan packets.DataReply),
+		Files:           make(map[string][]byte),
+		SearchChannel:   searchChannel,
+		NetworkSize:     networksize,
 		StubbornTimeout: stubbornTimeout,
+		AcksReceived:    *CreateAcksReceived(),
 	}
 	InitMatches(&gossiper.Matches)
 	return gossiper
@@ -156,131 +157,11 @@ func (gossiper *Gossiper) SendPacketRandomExcept(packet packets.GossipPacket, ex
 
 //Store all Messages packets received in order. Used to supply the GUI. Discard statuses
 func (gossiper *Gossiper) StoreLastPacket(packet packets.GossipPacket) {
-	if gossiper.SimpleMode && packet.Simple != nil || !gossiper.SimpleMode && (packet.Rumor != nil ||packet.TLCMessage !=nil) {
+	if gossiper.SimpleMode && packet.Simple != nil || !gossiper.SimpleMode && (packet.Rumor != nil || packet.TLCMessage != nil) {
 		gossiper.LastPacketsMux.Lock()
 		defer gossiper.LastPacketsMux.Unlock()
 		gossiper.LastPackets = append(gossiper.LastPackets, packet)
 
-	}
-}
-
-//Returns the last packets as rumors (even for simpleMessages) and clears the list. Used to supply the GUI
-func (gossiper *Gossiper) GetLastRumorsSince(idx int) []packets.RumorMessage {
-	gossiper.LastPacketsMux.Lock()
-	defer gossiper.LastPacketsMux.Unlock()
-	//refactor
-	var copy []packets.RumorMessage = nil
-	if idx < len(gossiper.LastPackets) && len(gossiper.LastPackets) > 0 || idx == 0 {
-
-		for _, packet := range gossiper.LastPackets[idx:] {
-			if packet.Simple != nil {
-				
-				s := packet.Simple
-				copy = append(copy, packets.RumorMessage{s.OriginalName, 0, s.Contents})
-			} else if packet.Rumor != nil {
-				copy = append(copy, *packet.Rumor)
-			}
-
-		}
-	}
-	return copy
-}
-
-//Stores the rumor in a map of list of ordered rumors. Each key of the map is a node orign
-func (gossiper *Gossiper) StoreRumor(packet packets.GossipPacket) {
-	if rumor := packet.Rumor; rumor != nil {
-		gossiper.rumorsMux.Lock()
-
-		list := make([]packets.Rumorable, len(gossiper.RumorsReceived[rumor.GetOrigin()]))
-		copy(list, gossiper.RumorsReceived[rumor.GetOrigin()])
-
-		id := rumor.GetID()
-		idx := sort.Search(len(list), func(i int) bool {
-			return list[i].GetID() > id
-		})
-		if idx < len(list) {
-			gossiper.RumorsReceived[rumor.GetOrigin()] = append(append(gossiper.RumorsReceived[rumor.GetOrigin()][:idx], rumor), list[idx:]...)
-		} else {
-			gossiper.RumorsReceived[rumor.GetOrigin()] = append(list, rumor)
-
-		}
-		gossiper.rumorsMux.Unlock()
-
-		gossiper.UpdateVectorClock(rumor)
-
-	}
-
-}
-
-//Update the vector clock. Add Status or update nextID
-func (gossiper *Gossiper) UpdateVectorClock(rumor packets.Rumorable) {
-	gossiper.VectorClockMux.Lock()
-	defer gossiper.VectorClockMux.Unlock()
-	status, found := gossiper.VectorClock[rumor.GetOrigin()]
-	if found && rumor.GetID() == status.NextID {
-		status.NextID = rumor.GetID() + 1
-		for {
-			nextrumor := gossiper.GetRumor(rumor.GetOrigin(), status.NextID)
-			if nextrumor != nil {
-				status.NextID += 1
-			} else {
-				return
-			}
-		}
-	} else if !found {
-
-		nextID := uint32(1)
-		if rumor.GetID() == nextID {
-			nextID += 1
-		}
-		status = &packets.PeerStatus{Identifier: rumor.GetOrigin(), NextID: nextID}
-		gossiper.VectorClock[rumor.GetOrigin()] = status
-	}
-}
-
-//Returns the rumor
-func (gossiper *Gossiper) GetRumor(origin string, id uint32) packets.Rumorable {
-	gossiper.rumorsMux.Lock()
-	defer gossiper.rumorsMux.Unlock()
-	list := gossiper.RumorsReceived[origin]
-	idx := sort.Search(len(list), func(i int) bool {
-		return list[i].GetID() >= id
-	})
-	if idx < len(list) && list[idx].GetID() == id {
-		return list[idx]
-	}
-	return nil
-
-}
-
-//Returns a GossipPacket with the rumor
-func (gossiper *Gossiper) GetRumorPacket(origin string, id uint32) *packets.GossipPacket {
-	rumorable := gossiper.GetRumor(origin, id)
-	if rumorable != nil {
-		if 	rumor, ok := rumorable.(*packets.RumorMessage);	ok {
-			return &packets.GossipPacket{Rumor: rumor}
-		}else if tlcmsg, ok := rumorable.(*packets.TLCMessage); ok {
-			return &packets.GossipPacket{TLCMessage: tlcmsg}
-		}
-	}
-	return nil
-}
-
-func (gossiper *Gossiper) GetNextRumorID(origin string) uint32 {
-	gossiper.rumorsMux.Lock()
-	defer gossiper.rumorsMux.Unlock()
-	rumors := gossiper.RumorsReceived[origin]
-	if len(rumors) == 0 {
-		return 1
-	} else {
-		prevID := uint32(0)
-		for _, rumor := range rumors {
-			if rumor.GetID() != uint32(prevID+1) {
-				return prevID + 1
-			}
-			prevID += 1
-		}
-		return rumors[len(rumors)-1].GetID() + 1
 	}
 }
 
@@ -298,4 +179,3 @@ func (gossiper *Gossiper) GetStatus() []packets.PeerStatus {
 func (gossiper *Gossiper) GetStatusPacket() *packets.StatusPacket {
 	return &packets.StatusPacket{Want: gossiper.GetStatus()}
 }
-

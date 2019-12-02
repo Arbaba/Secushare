@@ -2,16 +2,16 @@ package nodes
 
 import (
 	"fmt"
+	"github.com/Arbaba/Peerster/packets"
 	"strconv"
 	"strings"
-	"github.com/Arbaba/Peerster/packets"
 )
 
 //Prints to standard output
 func (gossiper *Gossiper) LogPeers() {
 	gossiper.PeersMux.Lock()
 	defer gossiper.PeersMux.Unlock()
-	fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
+	//fmt.Println("PEERS", strings.Join(gossiper.Peers[:], ","))
 }
 
 func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address string) {
@@ -22,15 +22,15 @@ func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address 
 			s += " "
 		}
 	}
-	fmt.Println(s)
+	//fmt.Println(s)
 }
 
 func (gossiper *Gossiper) LogRumor(rumor *packets.RumorMessage, peerAddr string) {
-	fmt.Printf("RUMOR origin %s from %s ID %d contents %s\n",
-		rumor.Origin,
-		peerAddr,
-		rumor.ID,
-		rumor.Text)
+	/*fmt.Printf("RUMOR origin %s from %s ID %d contents %s\n",
+	rumor.Origin,
+	peerAddr,
+	rumor.ID,
+	rumor.Text)*/
 }
 
 func (gossiper *Gossiper) LogSimpleMessage(packet *packets.SimpleMessage) {
@@ -75,24 +75,58 @@ func (gossiper *Gossiper) LogPrivateMsg(private *packets.PrivateMessage) {
 	fmt.Printf("PRIVATE origin %s hop-limit %d contents %s\n", private.Origin, private.HopLimit, private.Text)
 }
 
-
-func (gossiper *Gossiper) LogSearchReply(reply *packets.SearchReply){
+func (gossiper *Gossiper) LogSearchReply(reply *packets.SearchReply) {
 
 }
 
-
-func (gossiper *Gossiper) LogMatch(reply *packets.SearchReply, result*packets.SearchResult){
-	s :=""
-	for _, chunknb := range result.ChunkMap{
+func (gossiper *Gossiper) LogMatch(reply *packets.SearchReply, result *packets.SearchResult) {
+	s := ""
+	for _, chunknb := range result.ChunkMap {
 		s += strconv.FormatUint(chunknb, 10) + ","
 	}
-	s = s[:(len(s)-1)]
-	fmt.Printf("FOUND match %s at %s metafile=%s chunks=%s\n", 
-				result.FileName, 
-				reply.Origin, 
-				HexToString(result.MetafileHash[:]),
-				s,
-			)
+	s = s[:(len(s) - 1)]
+	fmt.Printf("FOUND match %s at %s metafile=%s chunks=%s\n",
+		result.FileName,
+		reply.Origin,
+		HexToString(result.MetafileHash[:]),
+		s,
+	)
 
-	
+}
+
+func (gossiper *Gossiper) LogUnconfirmed(tlc *packets.TLCMessage) {
+	fmt.Printf("UNCONFIRMED GOSSIP origin %s ID %d file name %s size %d metahash %s\n",
+		tlc.Origin,
+		tlc.ID,
+		tlc.TxBlock.Transaction.Name,
+		tlc.TxBlock.Transaction.Size,
+		HexToString(tlc.TxBlock.Transaction.MetafileHash),
+	)
+
+}
+
+func (gossiper *Gossiper) LogTLC(tlc *packets.TLCMessage) {
+	if tlc.Confirmed == -1 {
+		gossiper.LogUnconfirmed(tlc)
+	} else {
+		gossiper.LogConfirmedTLC(tlc)
+	}
+}
+
+func (gossiper *Gossiper) LogSendTLCAck(ack *packets.TLCAck, origin string) {
+	fmt.Printf("SENDING ACK origin %s ID %d\n", origin, ack.ID)
+}
+
+func (gossiper *Gossiper) LogRebroadcast(id int, witnesses []string) {
+	fmt.Printf("RE-BROADCAST ID %d WITNESSES %s\n", id, strings.Join(witnesses, ","))
+}
+
+func (gossiper *Gossiper) LogConfirmedTLC(tlc *packets.TLCMessage) {
+	fmt.Printf("CONFIRMED GOSSIP origin %s ID %d file name %s size %d metahash %s\n",
+		tlc.Origin,
+		tlc.ID,
+		tlc.TxBlock.Transaction.Name,
+		tlc.TxBlock.Transaction.Size,
+		HexToString(tlc.TxBlock.Transaction.MetafileHash),
+	)
 }
