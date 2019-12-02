@@ -19,6 +19,7 @@ func (gossiper *Gossiper) LaunchGossiperCLI() {
 		go gossiper.SendRandomRoute()
 		go gossiper.RouteRumorLoop()
 	}
+	go gossiper.ProcessClientTLCMessages()
 	gossiper.AntiEntropyLoop()
 }
 
@@ -30,6 +31,8 @@ func (gossiper *Gossiper) LaunchGossiperGUI() {
 		go gossiper.SendRandomRoute()
 		go gossiper.RouteRumorLoop()
 	}
+	go gossiper.ProcessClientTLCMessages()
+
 	RunServer(gossiper)
 
 }
@@ -105,28 +108,20 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 			gossiper.SendPrivateMsg(privatemsg)
 			gossiper.StorePrivateMsg(privatemsg)
 		} else if msg.File != nil {
-			if !gossiper.RoundState.HasSentFirst() {
-				gossiper.RoundState.SetFirstSent()
-				name, size, metahash := gossiper.ScanFile(*msg.File)
-				TLCMessage := packets.TLCMessage{
-					Origin:    gossiper.Name,
-					ID:        gossiper.GetNextRumorID(gossiper.Name),
-					Confirmed: -1,
-					TxBlock: packets.BlockPublish{
-						Transaction: packets.TxPublish{Name: name, Size: size, MetafileHash: metahash},
-					},
-					VectorClock: gossiper.GetStatusPacket(),
-					Fitness:     0,
-				}
-				packet := packets.GossipPacket{TLCMessage: &TLCMessage}
-				gossiper.StoreLastPacket(packet)
-				gossiper.StoreRumor(packet)
-				fmt.Println(gossiper.RumorMonger(&packet, gossiper.RelayAddress()))
-				go gossiper.Stubborn(&TLCMessage)
 
-			} else {
-				//buffer
+			name, size, metahash := gossiper.ScanFile(*msg.File)
+			TLCMessage := packets.TLCMessage{
+				Origin:    gossiper.Name,
+				ID:        gossiper.GetNextRumorID(gossiper.Name),
+				Confirmed: -1,
+				TxBlock: packets.BlockPublish{
+					Transaction: packets.TxPublish{Name: name, Size: size, MetafileHash: metahash},
+				},
+				VectorClock: gossiper.GetStatusPacket(),
+				Fitness:     0,
 			}
+			gossiper.TLCBuffer <- &TLCMessage
+
 		} else if msg.Keywords != nil {
 			if msg.Budget != nil {
 				gossiper.SearchFile(*msg.Keywords, *msg.Budget, make(map[string][]string), false)
@@ -306,15 +301,25 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		gossiper.RumorMonger(&packet, peerAddr)
 
 		if tlc.Confirmed == -1 {
-			gossiper.ACKTLC(tlc)
+			if gossiper.Hw3ex2 || gossiper.AckAll || gossiper.RoundTable.GetRound(tlc.Origin) >= gossiper.RoundState.GetRound() {
+				gossiper.ACKTLC(tlc)
+			}
+
+		} else {
+			//gossiper.RoundState.SetMajority()
+
+			gossiper.RoundState.RecordTLCMessage(tlc)
+
 		}
 	} else if tlcAck := packet.Ack; tlcAck != nil {
 		gossiper.AcksReceived.Add(tlcAck)
 		witnesses := gossiper.AcksReceived.Witnesses(tlcAck.ID)
+		fmt.Println(len(witnesses) >= int(gossiper.NetworkSize/2))
 		if len(witnesses) >= int(gossiper.NetworkSize/2) {
-			gossiper.RoundState.SetMajority()
 			tlc := gossiper.GetRumor(gossiper.Name, tlcAck.ID)
 			v, ok := tlc.(*packets.TLCMessage)
+			fmt.Println(v, ok)
+
 			fmt.Println(v, ok)
 			if ok {
 				gossiper.ConfirmAndBroadcast(*v, witnesses)

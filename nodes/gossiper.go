@@ -38,6 +38,11 @@ type Gossiper struct {
 	SearchChannel   chan packets.SearchReply
 	NetworkSize     int64
 	StubbornTimeout int64
+	TLCBuffer       chan *packets.TLCMessage
+	Hw3ex2          bool
+	Hw3ex3          bool
+	Hw3ex4          bool
+	AckAll          bool
 	RoundTable      RoundTable
 	RoundState      RoundState
 	AcksReceived    AcksReceived
@@ -54,13 +59,14 @@ type Gossiper struct {
 	DataBufferMux   sync.Mutex
 }
 
-func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64, networksize int64, stubbornTimeout int64) *Gossiper {
+func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool, antiEntropy int64, guiPort string, rtimer int64, networksize int64, stubbornTimeout int64, ex2 bool, ex3 bool, ex4 bool, ackAll bool) *Gossiper {
 	splitted := strings.Split(address, ":")
 	ip := splitted[0]
 
 	gossipAddr, gossipConn := UdpConnection(address)
 	clientAddr, clientConn := UdpConnection(fmt.Sprintf("%s:%s", ip, uiport))
 	searchChannel := make(chan packets.SearchReply, 100)
+	notifyRound := make(chan int)
 
 	gossiper := &Gossiper{
 		GossipAddr:      gossipAddr,
@@ -87,8 +93,15 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		StubbornTimeout: stubbornTimeout,
 		AcksReceived:    *CreateAcksReceived(),
 		RoundTable:      *CreateRoundTable(),
+		TLCBuffer:       make(chan *packets.TLCMessage, 100),
+		RoundState:      *CreateRoundState(&notifyRound),
+		Hw3ex2:          ex2,
+		Hw3ex3:          ex3,
+		Hw3ex4:          ex4,
+		AckAll:          ackAll,
 	}
 	InitMatches(&gossiper.Matches)
+	go gossiper.TrackRounds(&notifyRound)
 	return gossiper
 }
 

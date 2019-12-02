@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"fmt"
 	"github.com/Arbaba/Peerster/packets"
 	"sync"
 	"time"
@@ -31,6 +32,7 @@ func CreateAcksReceived() *AcksReceived {
 	return &v
 }
 
+//Keep track of other gossipers rounds and confirmedMessages
 type RoundTable struct {
 	sync.Mutex
 	table map[string]int
@@ -56,10 +58,38 @@ func (table *RoundTable) GetRound(origin string) int {
 
 type RoundState struct {
 	sync.Mutex
-	sentFirst bool //Indicates if the client sent a fist gossip with confirmation
-	round     int  //Current node Round number
-	majority  bool //Tells whether the majority of confirmed messages has been collected during the current round
-	sent      bool //Tells wheter  the node has sent a message during the current round
+	sentFirst         bool //Indicates if the client sent a fist gossip with confirmation
+	round             int  //Current node Round number
+	majority          bool //Tells whether the majority of confirmed messages has been collected during the current round
+	sent              bool //Tells wheter  the node has sent a message during the current round
+	notify            *chan int
+	confirmedMessages [][]*packets.TLCMessage
+}
+
+func CreateRoundState(RoundNotify *chan int) *RoundState {
+	var state RoundState
+	state.notify = RoundNotify
+	return &state
+}
+func (state *RoundState) RecordTLCMessage(tlc *packets.TLCMessage) {
+	state.Lock()
+	defer state.Unlock()
+	if tlc.Confirmed != -1 {
+		if len(state.confirmedMessages) <= state.round {
+			var roundList []*packets.TLCMessage
+			state.confirmedMessages = append(state.confirmedMessages, roundList)
+		}
+		state.confirmedMessages[state.round] = append(state.confirmedMessages[state.round], tlc)
+		fmt.Println(state.confirmedMessages)
+
+	}
+}
+
+func (state *RoundState) RoundTLCMessages(round int) []*packets.TLCMessage {
+	state.Lock()
+	defer state.Unlock()
+	fmt.Println(state.confirmedMessages)
+	return state.confirmedMessages[round]
 }
 
 func (state *RoundState) SetFirstSent() {
@@ -77,18 +107,28 @@ func (state *RoundState) SetMajority() {
 	state.Lock()
 	defer state.Unlock()
 	state.majority = true
+	state.advanceRound()
+
+}
+func (state *RoundState) GetRound() int {
+	state.Lock()
+	defer state.Unlock()
+	return state.round
+
 }
 
+/*
 func (state *RoundState) HasMajority() bool {
 	state.Lock()
 	defer state.Unlock()
 	return state.majority
-}
+}*/
 
 func (state *RoundState) SetSent() {
 	state.Lock()
 	defer state.Unlock()
 	state.sent = true
+	state.advanceRound()
 }
 
 func (state *RoundState) HasSent() bool {
@@ -97,22 +137,23 @@ func (state *RoundState) HasSent() bool {
 	return state.sent
 }
 
+/*
 func (state *RoundState) IsRoundComplete() bool {
 	state.Lock()
 	defer state.Unlock()
 	return state.majority && state.sent
-}
+}*/
 
-func (state *RoundState) AdvanceRound() bool {
-	state.Lock()
-	defer state.Unlock()
+func (state *RoundState) advanceRound() {
+	//don't lock
 	if state.majority && state.sent {
 		state.round += 1
 		state.majority = false
 		state.sent = false
-		return true
-	} else {
-		return false
+		fmt.Println("before")
+		*state.notify <- state.round
+		fmt.Println("after")
+
 	}
 }
 func (gossiper *Gossiper) Stubborn(tlcMessage *packets.TLCMessage) {
@@ -146,6 +187,24 @@ func (gossiper *Gossiper) ACKTLC(tlc *packets.TLCMessage) {
 
 }
 
+func (gossiper *Gossiper) ProcessClientTLCMessages() {
+	for {
+		if !gossiper.Hw3ex2 || (!gossiper.RoundState.HasSentFirst() || !gossiper.RoundState.HasSent()) {
+			select {
+			case TLCMessage := <-gossiper.TLCBuffer:
+				fmt.Println("Process")
+				gossiper.RoundState.SetFirstSent() //modularize to avoid call each time
+				gossiper.RoundState.SetSent()
+				packet := packets.GossipPacket{TLCMessage: TLCMessage}
+				gossiper.StoreLastPacket(packet)
+				gossiper.StoreRumor(packet)
+				gossiper.RumorMonger(&packet, gossiper.RelayAddress())
+				go gossiper.Stubborn(TLCMessage)
+			}
+		}
+	}
+}
+
 func (gossiper *Gossiper) ConfirmAndBroadcast(tlc packets.TLCMessage, witnesses []string) {
 	tlc.Confirmed = int(tlc.ID)
 	tlc.ID = gossiper.GetNextRumorID(tlc.Origin)
@@ -153,4 +212,13 @@ func (gossiper *Gossiper) ConfirmAndBroadcast(tlc packets.TLCMessage, witnesses 
 	pkt := &packets.GossipPacket{TLCMessage: &tlc}
 	gossiper.RumorMonger(pkt, gossiper.RelayAddress())
 	gossiper.LogRebroadcast(int(tlc.ID), witnesses)
+}
+
+func (gossiper *Gossiper) TrackRounds(notify *chan int) {
+	for {
+		select {
+		case round := <-*notify:
+			gossiper.LogAdvance(round)
+		}
+	}
 }

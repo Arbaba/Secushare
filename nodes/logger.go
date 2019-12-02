@@ -130,3 +130,16 @@ func (gossiper *Gossiper) LogConfirmedTLC(tlc *packets.TLCMessage) {
 		HexToString(tlc.TxBlock.Transaction.MetafileHash),
 	)
 }
+
+func (gossiper *Gossiper) LogAdvance(round int) {
+	tlcs := gossiper.RoundState.RoundTLCMessages(round - 1)
+	s := "ADVANCING TO ROUND " + string(round-1) + " BASED ON CONFIRMED MESSAGES "
+	for idx, tlc := range tlcs {
+		s += fmt.Sprintf("origin%d %s ID%d %d,", idx, tlc.Origin, idx, tlc.Confirmed)
+	}
+	s = s[:len(s)-1]
+	if gossiper.Hw3ex3 || gossiper.Hw3ex4 {
+		fmt.Println(s)
+	}
+
+}
