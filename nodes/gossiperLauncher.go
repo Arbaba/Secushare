@@ -313,6 +313,8 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 		}
 	} else if tlcAck := packet.Ack; tlcAck != nil {
+		gossiper.UpdateRouting(tlcAck.Origin, peerAddr, 0)
+
 		if tlcAck.Destination == gossiper.Name {
 			gossiper.AcksReceived.Add(tlcAck)
 			witnesses := gossiper.AcksReceived.Witnesses(tlcAck.ID)
