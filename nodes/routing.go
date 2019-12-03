@@ -9,7 +9,7 @@ import (
 func (gossiper *Gossiper) UpdateRouting(origin, address string, ID uint32) {
 	gossiper.RoutingTableMux.Lock()
 	defer gossiper.RoutingTableMux.Unlock()
-	if nextID := gossiper.GetNextRumorID(origin); origin != gossiper.Name && (ID >= nextID || ID ==0){
+	if nextID := gossiper.GetNextRumorID(origin); origin != gossiper.Name && (ID >= nextID || ID == 0) {
 		gossiper.RoutingTable[origin] = address
 	}
 }
@@ -68,6 +68,16 @@ func (gossiper *Gossiper) SendPrivateMsg(privatemsg *packets.PrivateMessage) {
 	ip, found := gossiper.RoutingTable[privatemsg.Destination]
 	if found {
 		pkt := packets.GossipPacket{Private: privatemsg}
+		gossiper.SendPacket(pkt, ip)
+	}
+}
+
+func (gossiper *Gossiper) SendTLCAck(tlc *packets.TLCAck) {
+	gossiper.RoutingTableMux.Lock()
+	defer gossiper.RoutingTableMux.Unlock()
+	ip, found := gossiper.RoutingTable[tlc.Destination]
+	if found {
+		pkt := packets.GossipPacket{Ack: tlc}
 		gossiper.SendPacket(pkt, ip)
 	}
 }

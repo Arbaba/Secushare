@@ -184,6 +184,7 @@ func (gossiper *Gossiper) GetChunk(hash string) ([]byte, bool) {
 }
 
 // TODO: Merge or modularize download functions when you have enough time,
+//Download process after a successful search
 func (gossiper *Gossiper) DownloadFoundFile(filename string) {
 
 	var fileData []byte

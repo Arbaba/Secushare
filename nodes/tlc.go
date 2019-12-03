@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"fmt"
 	"github.com/Arbaba/Peerster/packets"
 	"sync"
 	"time"
@@ -80,7 +79,6 @@ func (state *RoundState) RecordTLCMessage(tlc *packets.TLCMessage) {
 			state.confirmedMessages = append(state.confirmedMessages, roundList)
 		}
 		state.confirmedMessages[state.round] = append(state.confirmedMessages[state.round], tlc)
-		fmt.Println(state.confirmedMessages)
 
 	}
 }
@@ -88,7 +86,7 @@ func (state *RoundState) RecordTLCMessage(tlc *packets.TLCMessage) {
 func (state *RoundState) RoundTLCMessages(round int) []*packets.TLCMessage {
 	state.Lock()
 	defer state.Unlock()
-	fmt.Println(state.confirmedMessages)
+	//fmt.Println(state.confirmedMessages)
 	return state.confirmedMessages[round]
 }
 
@@ -150,9 +148,7 @@ func (state *RoundState) advanceRound() {
 		state.round += 1
 		state.majority = false
 		state.sent = false
-		fmt.Println("before")
 		*state.notify <- state.round
-		fmt.Println("after")
 
 	}
 }
@@ -192,7 +188,6 @@ func (gossiper *Gossiper) ProcessClientTLCMessages() {
 		if !gossiper.Hw3ex2 || (!gossiper.RoundState.HasSentFirst() || !gossiper.RoundState.HasSent()) {
 			select {
 			case TLCMessage := <-gossiper.TLCBuffer:
-				fmt.Println("Process")
 				gossiper.RoundState.SetFirstSent() //modularize to avoid call each time
 				gossiper.RoundState.SetSent()
 				packet := packets.GossipPacket{TLCMessage: TLCMessage}

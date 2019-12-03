@@ -124,7 +124,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 
 		} else if msg.Keywords != nil {
 			if msg.Budget != nil {
-				gossiper.SearchFile(*msg.Keywords, *msg.Budget, make(map[string][]string), false)
+				gossiper.SearchFile(*msg.Keywords, *msg.Budget, make(map[string][]string), true)
 			} else {
 				gossiper.SearchFile(*msg.Keywords, uint64(2), make(map[string][]string), true)
 			}
@@ -267,10 +267,10 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 			pkt := packets.GossipPacket{SearchReply: &reply}
 			gossiper.SendDirect(pkt, searchRequest.Origin)
 		}
-		fmt.Println(reply.Results)
+		//fmt.Println(reply.Results)
 		gossiper.ForwardSearchRequest(searchRequest)
 	} else if searchReply := packet.SearchReply; searchReply != nil {
-		fmt.Println(*searchReply)
+		//fmt.Println(*searchReply)
 		gossiper.UpdateRouting(searchReply.Origin, peerAddr, 0)
 		if searchReply.Destination == gossiper.Name {
 			gossiper.SearchChannel <- *searchReply
@@ -280,7 +280,6 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 		}
 
 	} else if tlc := packet.TLCMessage; packet.TLCMessage != nil {
-		fmt.Println("Received tlc")
 		gossiper.AddPeer(peerAddr)
 		//gossiper.LogPeers()
 		//gossiper.LogDSDVRumor(rumor, peerAddr)
@@ -314,17 +313,24 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 		}
 	} else if tlcAck := packet.Ack; tlcAck != nil {
-		gossiper.AcksReceived.Add(tlcAck)
-		witnesses := gossiper.AcksReceived.Witnesses(tlcAck.ID)
-		fmt.Println(len(witnesses) >= int(gossiper.NetworkSize/2))
-		if len(witnesses) >= int(gossiper.NetworkSize/2) {
-			tlc := gossiper.GetRumor(gossiper.Name, tlcAck.ID)
-			v, ok := tlc.(*packets.TLCMessage)
-			if ok {
-				//should be able to stop it
-				gossiper.ConfirmAndBroadcast(*v, witnesses)
+		if tlcAck.Destination == gossiper.Name {
+			gossiper.AcksReceived.Add(tlcAck)
+			witnesses := gossiper.AcksReceived.Witnesses(tlcAck.ID)
+
+			//fmt.Println(len(witnesses) >= int(gossiper.NetworkSize/2))
+			if len(witnesses) >= int(gossiper.NetworkSize/2) {
+				tlc := gossiper.GetRumor(gossiper.Name, tlcAck.ID)
+				v, ok := tlc.(*packets.TLCMessage)
+				if ok {
+					//should be able to stop it
+					gossiper.ConfirmAndBroadcast(*v, witnesses)
+				}
 			}
+		} else if tlcAck.HopLimit > 0 {
+			tlcAck.HopLimit -= 1
+			gossiper.SendTLCAck(tlcAck)
 		}
+
 	} else {
 		fmt.Println(packet)
 	}

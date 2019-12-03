@@ -82,7 +82,7 @@ func (gossiper *Gossiper) LogSearchReply(reply *packets.SearchReply) {
 func (gossiper *Gossiper) LogMatch(reply *packets.SearchReply, result *packets.SearchResult) {
 	s := ""
 	for _, chunknb := range result.ChunkMap {
-		s += strconv.FormatUint(chunknb, 10) + ","
+		s += strconv.FormatUint(chunknb+1, 10) + ","
 	}
 	s = s[:(len(s) - 1)]
 	fmt.Printf("FOUND match %s at %s metafile=%s chunks=%s\n",
