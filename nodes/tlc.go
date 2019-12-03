@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+const QSC_ROUNDS = 3
+
+/*Stores the acks received per round*/
 type AcksReceived struct {
 	sync.Mutex
 	store map[uint32][]string
@@ -34,7 +37,7 @@ func CreateAcksReceived() *AcksReceived {
 //Keep track of other gossipers rounds and confirmedMessages
 type RoundTable struct {
 	sync.Mutex
-	table map[string]int
+	table map[string]int //Map gossiper name -> round
 }
 
 func CreateRoundTable() *RoundTable {
@@ -55,13 +58,14 @@ func (table *RoundTable) GetRound(origin string) int {
 	return table.table[origin]
 }
 
+//Struct to keep track of the current round
 type RoundState struct {
 	sync.Mutex
-	sentFirst         bool //Indicates if the client sent a fist gossip with confirmation
-	round             int  //Current node Round number
-	majority          bool //Tells whether the majority of confirmed messages has been collected during the current round
-	sent              bool //Tells wheter  the node has sent a message during the current round
-	notify            *chan int
+	sentFirst         bool      //Indicates if the client sent a fist gossip with confirmation
+	round             int       //Current node Round number
+	majority          bool      //Tells whether the majority of confirmed messages has been collected during the current round
+	sent              bool      //Tells wheter  the node has sent a message during the current round
+	notify            *chan int //To notfy the gossiper when the round changes
 	confirmedMessages [][]*packets.TLCMessage
 }
 
@@ -143,7 +147,7 @@ func (state *RoundState) IsRoundComplete() bool {
 }*/
 
 func (state *RoundState) advanceRound() {
-	//don't lock
+	//don't lock so it can be used in other methods
 	if state.majority && state.sent {
 		state.round += 1
 		state.majority = false
@@ -164,6 +168,8 @@ func (gossiper *Gossiper) Stubborn(tlcMessage *packets.TLCMessage) {
 			if len(gossiper.AcksReceived.Witnesses(tlcMessage.ID)) < int(gossiper.NetworkSize/2) {
 				pkt := packets.GossipPacket{TLCMessage: tlcMessage}
 				gossiper.RumorMonger(&pkt, gossiper.Name)
+			} else {
+				return
 			}
 		}
 	}
@@ -210,10 +216,41 @@ func (gossiper *Gossiper) ConfirmAndBroadcast(tlc packets.TLCMessage, witnesses 
 }
 
 func (gossiper *Gossiper) TrackRounds(notify *chan int) {
+	var bestFit packets.TLCMessage
 	for {
 		select {
 		case round := <-*notify:
 			gossiper.LogAdvance(round)
+
+			//Que sera consensus
+			if gossiper.Hw3ex4 && gossiper.RoundState.GetRound()%QSC_ROUNDS == 0 && round > 0 {
+				gossiper.Blockchain.Add(bestFit.TxBlock)
+				gossiper.LogConsensus(bestFit.Origin, bestFit.ID)
+			} else if gossiper.Hw3ex4 && gossiper.RoundState.GetRound()%QSC_ROUNDS == 1 {
+				tlcs := gossiper.RoundState.RoundTLCMessages(round)
+
+				for _, tlc := range tlcs {
+					if tlc.Fitness > bestFit.Fitness {
+						bestFit = *tlc
+					}
+				}
+				pkt := packets.GossipPacket{
+					TLCMessage: &bestFit,
+				}
+				gossiper.RumorMonger(&pkt, gossiper.RelayAddress())
+			} else if gossiper.Hw3ex4 && gossiper.RoundState.GetRound()%QSC_ROUNDS == 2 {
+				tlcs := gossiper.RoundState.RoundTLCMessages(round)
+
+				for _, tlc := range tlcs {
+					if tlc.Fitness > bestFit.Fitness {
+						bestFit = *tlc
+					}
+				}
+				pkt := packets.GossipPacket{
+					TLCMessage: &bestFit,
+				}
+				gossiper.RumorMonger(&pkt, gossiper.RelayAddress())
+			}
 		}
 	}
 }

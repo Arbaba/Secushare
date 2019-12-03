@@ -43,6 +43,7 @@ type Gossiper struct {
 	Hw3ex3          bool
 	Hw3ex4          bool
 	AckAll          bool
+	Blockchain      Blockchain
 	RoundTable      RoundTable
 	RoundState      RoundState
 	AcksReceived    AcksReceived
@@ -99,6 +100,7 @@ func NewGossiper(address, namee, uiport string, peers []string, simpleMode bool,
 		Hw3ex3:          ex3,
 		Hw3ex4:          ex4,
 		AckAll:          ackAll,
+		Blockchain:      *CreateBlockchain(),
 	}
 	InitMatches(&gossiper.Matches)
 	go gossiper.TrackRounds(&notifyRound)

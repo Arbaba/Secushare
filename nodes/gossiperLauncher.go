@@ -6,10 +6,10 @@ This file serves to handle the high level behavior of the gossiper
 */
 import (
 	"fmt"
-	"net"
-
 	"github.com/Arbaba/Peerster/packets"
 	"github.com/dedis/protobuf"
+	"math/rand"
+	"net"
 )
 
 func (gossiper *Gossiper) LaunchGossiperCLI() {
@@ -118,7 +118,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 					Transaction: packets.TxPublish{Name: name, Size: size, MetafileHash: metahash},
 				},
 				VectorClock: gossiper.GetStatusPacket(),
-				Fitness:     0,
+				Fitness:     rand.Float32(),
 			}
 			gossiper.TLCBuffer <- &TLCMessage
 
@@ -301,7 +301,14 @@ func handleGossip(gossiper *Gossiper, message []byte, rlen int, raddr *net.UDPAd
 
 		if tlc.Confirmed == -1 {
 			if gossiper.Hw3ex2 || gossiper.AckAll || gossiper.RoundTable.GetRound(tlc.Origin) >= gossiper.RoundState.GetRound() {
-				gossiper.ACKTLC(tlc)
+				if gossiper.Hw3ex4 {
+					if gossiper.Blockchain.CheckValid(&tlc.TxBlock) {
+						gossiper.ACKTLC(tlc)
+					}
+
+				} else {
+					gossiper.ACKTLC(tlc)
+				}
 			}
 
 		} else {

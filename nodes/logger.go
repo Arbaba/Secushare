@@ -143,3 +143,22 @@ func (gossiper *Gossiper) LogAdvance(round int) {
 	}
 
 }
+
+func (gossiper *Gossiper) LogConsensus(origin string, id uint32) {
+	newblock := gossiper.Blockchain.GetHead()
+	names := gossiper.Blockchain.GetNames()
+	h := newblock.Hash()
+	s, e := fmt.Printf("CONSENSUS ON QSC round %d message origin %s ID %d %s size %d metahash %s\n",
+		gossiper.RoundState.GetRound(),
+		origin,
+		id,
+		strings.Join(names, " "),
+		newblock.Transaction.Size,
+		HexToString(h[:]))
+	if e != nil {
+		fmt.Println(e)
+	} else {
+		fmt.Println(s)
+	}
+
+}
