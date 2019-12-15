@@ -49,7 +49,8 @@ func (blockchain *Blockchain) CheckValid(otherChain *packets.BlockPublish) bool 
 
 	blockchain.Lock()
 	defer blockchain.Unlock()
-	if blockchain.checkValidName(otherChain.Transaction.Name) && (blockchain.head.Hash() == otherChain.Hash()) {
+	//Got issue with comparison, correct later
+	if blockchain.checkValidName(otherChain.Transaction.Name) /* && (blockchain.head.Hash() == otherChain.PrevHash) */ {
 		return true
 	}
 	return false
@@ -68,6 +69,12 @@ func (blockchain *Blockchain) GetNames() []string {
 	blockchain.Lock()
 	defer blockchain.Unlock()
 	return blockchain.names
+}
+
+func (blockchain *Blockchain) GetHeadHash() [32]byte {
+	blockchain.Lock()
+	defer blockchain.Unlock()
+	return (&blockchain.head).Hash()
 }
 
 func (blockchain *Blockchain) GetHead() packets.BlockPublish {

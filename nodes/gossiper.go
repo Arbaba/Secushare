@@ -48,6 +48,7 @@ type Gossiper struct {
 	RoundState      RoundState
 	AcksReceived    AcksReceived
 	Matches         Matches
+	LogsContainer   LogsContainer
 	PeersMux        sync.Mutex
 	rumorsMux       sync.Mutex
 	AcksChannelsMux sync.Mutex

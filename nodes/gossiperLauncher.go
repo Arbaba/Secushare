@@ -116,6 +116,7 @@ func handleClient(gossiper *Gossiper, message []byte, rlen int) {
 				Confirmed: -1,
 				TxBlock: packets.BlockPublish{
 					Transaction: packets.TxPublish{Name: name, Size: size, MetafileHash: metahash},
+					PrevHash:    gossiper.Blockchain.GetHeadHash(),
 				},
 				VectorClock: gossiper.GetStatusPacket(),
 				Fitness:     rand.Float32(),

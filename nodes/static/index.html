@@ -100,6 +100,20 @@
               <br>
               <button onclick="searchFile($('#keywords').val())"  class="btn btn-primary mb-2">Download file</button>
             </div>
+            <h3>Matches</h3>
+            <table class="table table-striped table-responsive">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Download</th>
+                </tr>
+              </thead>
+              <tbody id="matchesTable">
+  
+  
+  
+              </tbody>
+          </table>
         </div>
       <div class="col-lg-3" id="metadata">
         <h2>Peers</h2><br>
@@ -113,12 +127,20 @@
           <button type="button" class="btn btn-primary" id="addPeer" onclick="addPeer($('#newPeer').val())">Add Peer</button>
 
         </div>
-        
+        <br>
+          <h2>Logs</h2><br>
+          <div id="logs">
+  
+          </div>
+          
+          
+  
+          
+        </div>
 
         
       </div>
      
-    </div>
   </div>
 
   <!-- Bootstrap core JavaScript -->
@@ -127,6 +149,7 @@
   <script src="https://d3js.org/d3.v5.min.js"></script>
   <script>
       var peers = [];
+      var matches = []
       var origins = ['Global']
       var privateMessagesCount = {}
       var countMsg = 0
@@ -257,7 +280,38 @@
               
             
         
-          
+          $.getJSON('/logs/list', function(d){
+            if(d && d['Logs']){
+              d['Logs'].forEach(log => {
+                
+                  d3.select('#logs')
+                    .append('p')
+                    //.attr('class','text-justify')
+                    .text(log)
+                    .append("br")
+              })
+
+              setPeerID(d['PeerID'])
+
+            }
+          })
+
+          $.getJSON('/files/matches', function(d){
+            if(d && d['Matches']){
+              d['Matches'].forEach(filename =>{
+                if(!matches.includes(filename)){
+                  matches.push(filename)
+                   row = d3.select('#matchesTable')
+                    .append('tr')
+                    row.append('td').text(filename).attr('class', "word-break:break-all")
+                    row.append('td').append('button').text('download').attr('class', "btn btn-primary")
+                    .on('click', (name) => {
+                      $.get('files/download/' + filename)
+                    })
+                }
+              })
+            }}
+          )
 
           $.getJSON('/peers/list', function(d){
             if(d && d['Peers']){
@@ -283,7 +337,7 @@
             metahashes = files.map(f => f.MetaHash)
             if(d && d['Files']){
               d['Files'].forEach(fileInfo =>{
-                if(!metahashes.includes(fileInfo.MetaHash)){
+                if(!metahashes.includes(fileInfo.MetaHash) && fileInfo.FileSize > 0){
                   files.push(fileInfo)
                    row = d3.select('#fileTable')
                     .append('tr')

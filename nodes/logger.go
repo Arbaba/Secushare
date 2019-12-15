@@ -122,25 +122,29 @@ func (gossiper *Gossiper) LogRebroadcast(id int, witnesses []string) {
 }
 
 func (gossiper *Gossiper) LogConfirmedTLC(tlc *packets.TLCMessage) {
-	fmt.Printf("CONFIRMED GOSSIP origin %s ID %d file name %s size %d metahash %s\n",
+	s := fmt.Sprintf("CONFIRMED GOSSIP origin %s ID %d file name %s size %d metahash %s\n",
 		tlc.Origin,
 		tlc.ID,
 		tlc.TxBlock.Transaction.Name,
 		tlc.TxBlock.Transaction.Size,
 		HexToString(tlc.TxBlock.Transaction.MetafileHash),
 	)
+	fmt.Println(s)
+	gossiper.LogsContainer.Add(s)
+
 }
 
 func (gossiper *Gossiper) LogAdvance(round int) {
 	tlcs := gossiper.RoundState.RoundTLCMessages(round - 1)
-	s := "ADVANCING TO ROUND " + string(round-1) + " BASED ON CONFIRMED MESSAGES "
+	s := "ADVANCING TO ROUND " + fmt.Sprintf("%d", round-1) + " BASED ON CONFIRMED MESSAGES "
 	for idx, tlc := range tlcs {
-		s += fmt.Sprintf("origin%d %s ID%d %d,", idx, tlc.Origin, idx, tlc.Confirmed)
+		s += fmt.Sprintf("origin%d %s ID%d %d,", idx+1, tlc.Origin, idx+1, tlc.Confirmed)
 	}
 	s = s[:len(s)-1]
 	if gossiper.Hw3ex3 || gossiper.Hw3ex4 {
 		fmt.Println(s)
 	}
+	gossiper.LogsContainer.Add(s)
 
 }
 
@@ -148,17 +152,14 @@ func (gossiper *Gossiper) LogConsensus(origin string, id uint32) {
 	newblock := gossiper.Blockchain.GetHead()
 	names := gossiper.Blockchain.GetNames()
 	h := newblock.Hash()
-	s, e := fmt.Printf("CONSENSUS ON QSC round %d message origin %s ID %d %s size %d metahash %s\n",
+	s := fmt.Sprintf("CONSENSUS ON QSC round %d message origin %s ID %d %s size %d metahash %s\n",
 		gossiper.RoundState.GetRound(),
 		origin,
 		id,
 		strings.Join(names, " "),
 		newblock.Transaction.Size,
 		HexToString(h[:]))
-	if e != nil {
-		fmt.Println(e)
-	} else {
-		fmt.Println(s)
-	}
 
+	fmt.Println(s)
+	gossiper.LogsContainer.Add(s)
 }

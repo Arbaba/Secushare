@@ -1,18 +1,39 @@
 package nodes
 
 import (
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 
 	"fmt"
+	"github.com/Arbaba/Peerster/packets"
+	"github.com/dedis/protobuf"
+	"github.com/gorilla/mux"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
-	"github.com/Arbaba/Peerster/packets"
-	"github.com/dedis/protobuf"
-	"github.com/gorilla/mux"
+	"sync"
 )
+
+type LogsContainer struct {
+	sync.Mutex
+	logs    []string
+	counter int
+}
+
+func (l *LogsContainer) Add(s string) {
+	l.Lock()
+	defer l.Unlock()
+	l.logs = append(l.logs, s)
+}
+
+func (l *LogsContainer) Flush() []string {
+	l.Lock()
+	defer l.Unlock()
+	buf := l.logs[l.counter:]
+	l.counter = len(l.logs)
+	return buf
+}
 
 type Payload struct {
 	Messages        []packets.RumorMessage
@@ -20,13 +41,15 @@ type Payload struct {
 	PeerID          string
 	Origins         []string
 	PrivateMessages map[string][]packets.PrivateMessage
-	Files 			[]FilePayload
+	Files           []FilePayload
+	Logs            []string
+	Matches         []string
 }
 
 type FilePayload struct {
-	FileName	string
-	FileSize	uint32
-	MetaHash	string  
+	FileName string
+	FileSize uint32
+	MetaHash string
 }
 
 type PrivateMessageRequest struct {
@@ -37,6 +60,11 @@ type PrivateMessageRequest struct {
 func RunServer(gossiper *Gossiper) {
 
 	r := mux.NewRouter()
+	r.HandleFunc("/logs/list", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Payload{Logs: gossiper.LogsContainer.Flush(), PeerID: gossiper.Name})
+
+	})
 
 	r.HandleFunc("/messages/recentList/{since}", func(w http.ResponseWriter, r *http.Request) {
 		idx, err := strconv.Atoi(mux.Vars(r)["since"])
@@ -105,7 +133,6 @@ func RunServer(gossiper *Gossiper) {
 
 	})
 
-
 	r.HandleFunc("/routing/origins", func(w http.ResponseWriter, r *http.Request) {
 		//check input
 		w.Header().Set("Content-Type", "application/json")
@@ -115,7 +142,7 @@ func RunServer(gossiper *Gossiper) {
 	})
 
 	r.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/", http.StatusSeeOther)	
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 		file, handler, err := r.FormFile("newFile")
 		if err != nil {
@@ -140,13 +167,13 @@ func RunServer(gossiper *Gossiper) {
 			files = append(files, FilePayload{fileInfo.FileName, fileInfo.FileSize, k})
 		}
 		gossiper.FilesInfoMux.Unlock()
-		payload := Payload{PeerID: gossiper.Name, Files: files }
+		payload := Payload{PeerID: gossiper.Name, Files: files}
 		json.NewEncoder(w).Encode(payload)
 
 	})
 
 	r.HandleFunc("/files/download", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/", http.StatusSeeOther)	
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 
 		hash := r.FormValue("request")
 		dest := r.FormValue("destination")
@@ -156,18 +183,61 @@ func RunServer(gossiper *Gossiper) {
 			fmt.Println(e)
 			return
 		}
-		msg := packets.Message{Destination: &dest, Request:&h, File: &name}
+		msg := packets.Message{Destination: &dest, Request: &h, File: &name}
 		encodedPacket, err := protobuf.Encode(&msg)
 		if err != nil {
 			fmt.Println(err)
 		}
 		handleClient(gossiper, encodedPacket, len(encodedPacket))
 	})
+	r.HandleFunc("/files/download/{filename}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+
+		vars := mux.Vars(r)
+		filename := vars["filename"]
+		gossiper.FilesInfoMux.Lock()
+		for h, fileInfo := range gossiper.FilesInfo {
+			if fileInfo.FileName == filename {
+				gossiper.FilesInfoMux.Unlock()
+
+				metahash, e := hex.DecodeString(h)
+				if e != nil {
+					return
+				}
+				msg := packets.Message{File: &filename, Request: &metahash}
+				encodedPacket, err := protobuf.Encode(&msg)
+				if err != nil {
+					fmt.Println(err)
+				}
+				handleClient(gossiper, encodedPacket, len(encodedPacket))
+				return
+			}
+		}
+		gossiper.FilesInfoMux.Unlock()
+
+	})
 
 	r.HandleFunc("/files/search/{keywords}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		keywords := strings.Split(vars["keywords"], ",")
-		fmt.Println(keywords)
+		msg := packets.Message{Keywords: &keywords}
+		encodedPacket, err := protobuf.Encode(&msg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		handleClient(gossiper, encodedPacket, len(encodedPacket))
+
+	})
+
+	r.HandleFunc("/files/matches", func(w http.ResponseWriter, r *http.Request) {
+		var files []string
+		gossiper.Matches.Lock()
+		for fname, _ := range gossiper.Matches.Locations {
+			files = append(files, fname)
+		}
+		gossiper.Matches.Unlock()
+		payload := Payload{PeerID: gossiper.Name, Matches: files}
+		json.NewEncoder(w).Encode(payload)
 
 	})
 
