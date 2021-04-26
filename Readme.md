@@ -1,23 +1,60 @@
 # Peerster
 
-This is just a quick summary of the different homeworks.
+Peerster is a decentralized messaging and file sharing application written in Go. It allows users to exchange messages, upload/download and search for availabable files in the network. 
+Each node communicates with other peers on its gossip port, and with clients on the `UIPort`. Alternatively, each node provides a GUI on its `GUIPort`.
 
-## Homework 1
-1. Creating a UDP (datagram) socket to communicate with other nodes.
-2. Implementing a simple gossip algorithm to distribute messages among directly and
-indirectly connected nodes.
-3. Constructing a simple user interface for viewing and entering messages.
+![image](docs/demo.JPG)
+# Usage
 
-### Gossiping in Peerster
+Commands for the example above:
 
-Nodes can join and leave the gossip protocol. When a node :
-* joins -> contact info from  a few other nodes accessible.  
-* receives a message, it learns the address from the sender.
+`./Peerster --UIPort 12345 --gossipAddr 127.0.0.1:5000 --name Alice --peers 127.0.0.1:5001,127.0.0.1:5002 --antiEntropy 10 --rtimer 
+10 --GUIPort 8080 --stubbornTimeout 10`
 
-### Peerster design
-Each node acts as a gossiper. The client contacts the gossiper through an API to send, receive, list messages etc.  
-The gossiper node communicates with other peers on the `gossipPort` , and with clients on the `UIPort`. Hence the gossiper listens on two different ports.
+`./Peerster --UIPort 12346 --gossipAddr 127.0.0.1:5001 --name Bob --peers 127.0.0.1:5002  --antiEntropy 10 --rtimer 10 --GUIPort 8081 --stubbornTimeout 10`
 
-## Part 1: Network Programming in Go
+`./Peerster --UIPort 12347 --gossipAddr 127.0.0.1:5002 --name Charlie --peers 127.0.0.1:5001 --antiEntropy 10 --rtimer 10 --GUIPort 
+8082 --stubbornTimeout 10`
 
-Implement broadcasting via UDP. Create two programs: The first to initialize the gossiper and the second is the client API.
+
+```
+Usage of ./Peerster:
+  -GUIPort string
+        Port for the graphical interface
+  -N int
+        Network size
+  -UIPort string
+        port for the UI client (default "8080")
+  -antiEntropy int
+        Use the given timeout in seconds for anti-entropy (relevant only for Part 2. If the flag is absent, the default anti-entropy duration is 10 seconds (default 10)
+  -gossipAddr string
+        ip:port for the gossiper (default "127.0.0.1:5000")
+  -name string
+        name of the gossiper
+  -peers string
+        comma separated list of peers of the form ip:port
+  -rtimer int
+        Timeout in seconds for anti-entropy. If the flag is absent, the default anti-entropy duration is 10 seconds.
+  -simple
+        run gossiper in simple broadcast mode
+  -stubbornTimeout int
+        Stubborn timeout  (default -1)
+```
+
+```
+Usage of ./client/client:
+  -UIPort string
+        port for the UI client (default "8080")
+  -budget string
+        Search budget
+  -dest string
+        destination for the private message
+  -file string
+        file to be indexed by the gossiper
+  -keywords string
+        Search keywords
+  -msg string
+        message to be sent
+  -request string
+        Request of a chunk or metafile of this hash
+```

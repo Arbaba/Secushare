@@ -15,13 +15,13 @@ func (gossiper *Gossiper) LogPeers() {
 }
 
 func (gossiper *Gossiper) LogStatusPacket(packet *packets.StatusPacket, address string) {
-	s := fmt.Sprintf("STATUS from %s ", address)
+	/*s := fmt.Sprintf("STATUS from %s ", address)
 	for i, status := range packet.Want {
 		s += fmt.Sprintf("peer %s nextID %d", status.Identifier, status.NextID)
 		if i != len(packet.Want)-1 {
 			s += " "
 		}
-	}
+	}*/
 	//fmt.Println(s)
 }
 
@@ -34,10 +34,10 @@ func (gossiper *Gossiper) LogRumor(rumor *packets.RumorMessage, peerAddr string)
 }
 
 func (gossiper *Gossiper) LogSimpleMessage(packet *packets.SimpleMessage) {
-	fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
+	/*fmt.Printf("SIMPLE MESSAGE origin %s from %s contents %s\n",
 		packet.OriginalName,
 		packet.RelayPeerAddr,
-		packet.Contents)
+		packet.Contents)*/
 }
 
 func (gossiper *Gossiper) LogMongering(target string) {
@@ -143,8 +143,9 @@ func (gossiper *Gossiper) LogAdvance(round int) {
 	s = s[:len(s)-1]
 	if gossiper.Hw3ex3 || gossiper.Hw3ex4 {
 		fmt.Println(s)
+		gossiper.LogsContainer.Add(s)
+
 	}
-	gossiper.LogsContainer.Add(s)
 
 }
 
