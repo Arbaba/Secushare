@@ -1,6 +1,6 @@
-# Peerster
+# Secushare
 
-Peerster is a decentralized messaging and file sharing application written in Go. It allows users to exchange messages, upload/download and search for availabable files in the network. 
+Secushare is a decentralized messaging and file sharing application written in Go. It allows users to exchange messages, upload/download and search for availabable files in the network. 
 Each node communicates with other peers on its gossip port, and with clients on the `UIPort`. Alternatively, each node provides a GUI on its `GUIPort`.
 
 ![image](docs/demo.JPG)
@@ -8,17 +8,17 @@ Each node communicates with other peers on its gossip port, and with clients on 
 
 Commands for the example above:
 
-`./Peerster --UIPort 12345 --gossipAddr 127.0.0.1:5000 --name Alice --peers 127.0.0.1:5001,127.0.0.1:5002 --antiEntropy 10 --rtimer 
+`./Secushare --UIPort 12345 --gossipAddr 127.0.0.1:5000 --name Alice --peers 127.0.0.1:5001,127.0.0.1:5002 --antiEntropy 10 --rtimer 
 10 --GUIPort 8080 --stubbornTimeout 10`
 
-`./Peerster --UIPort 12346 --gossipAddr 127.0.0.1:5001 --name Bob --peers 127.0.0.1:5002  --antiEntropy 10 --rtimer 10 --GUIPort 8081 --stubbornTimeout 10`
+`./Secushare --UIPort 12346 --gossipAddr 127.0.0.1:5001 --name Bob --peers 127.0.0.1:5002  --antiEntropy 10 --rtimer 10 --GUIPort 8081 --stubbornTimeout 10`
 
-`./Peerster --UIPort 12347 --gossipAddr 127.0.0.1:5002 --name Charlie --peers 127.0.0.1:5001 --antiEntropy 10 --rtimer 10 --GUIPort 
+`./Secushare --UIPort 12347 --gossipAddr 127.0.0.1:5002 --name Charlie --peers 127.0.0.1:5001 --antiEntropy 10 --rtimer 10 --GUIPort 
 8082 --stubbornTimeout 10`
 
 
 ```
-Usage of ./Peerster:
+Usage of ./Secushare:
   -GUIPort string
         Port for the graphical interface
   -N int
